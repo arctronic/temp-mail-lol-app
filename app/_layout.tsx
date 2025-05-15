@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
 import { AppState, StyleSheet } from 'react-native';
 import { EmailProvider } from '../contexts/EmailContext';
+import { ReloadIntervalProvider } from '../contexts/ReloadIntervalContext';
 import { ThemeProvider, useThemePreference } from '../contexts/ThemeContext';
 
 // Create a client with optimized settings for better UX
@@ -68,9 +69,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <EmailProvider>
-          <AppWithTheme />
-        </EmailProvider>
+        <ReloadIntervalProvider>
+          <EmailProvider>
+            <AppWithTheme />
+          </EmailProvider>
+        </ReloadIntervalProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

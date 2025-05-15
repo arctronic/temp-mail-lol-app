@@ -3,6 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
+import { useReloadInterval } from './ReloadIntervalContext';
 
 type MongoDate = {
   $date: string;
@@ -68,6 +69,7 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
   const [domain, setDomain] = useState<string>('tempmail.lol'); // Default domain to show immediately
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [shouldFetchEmails, setShouldFetchEmails] = useState(false);
+  const { reloadInterval } = useReloadInterval();
   
   // Add preloaded state to avoid loading indicators on initial render
   const [preloaded, setPreloaded] = useState(true);
@@ -137,7 +139,7 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
         }
 
         const data = await response.json();
-        console.log('API /api/emails response:', data);
+        // console.log('API /api/emails response:', data);
         
         // Return an empty array immediately if response is empty
         if (!data || !Array.isArray(data) || data.length === 0) {
@@ -175,7 +177,7 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
       }
     },
     enabled: shouldFetchEmails && !!generatedEmail && generatedEmail.split('@')[0].length >= MIN_USERNAME_LENGTH,
-    refetchInterval: 60000, // Increase interval to reduce load
+    refetchInterval: reloadInterval * 1000, // Convert seconds to milliseconds
     retry: 2,
     retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 5000),
     // Force staleTime to prevent immediate refetch

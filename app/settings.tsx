@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 type ThemeOption = 'system' | 'light' | 'dark';
@@ -69,17 +71,44 @@ function ThemeButton({ label, value, icon, isSelected, onPress }: ThemeButtonPro
   );
 }
 
+// Helper function to format seconds into a readable string
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds} seconds`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (remainingSeconds === 0) {
+    return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  }
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
 export default function SettingsScreen() {
   const { themePreference, setThemePreference } = useThemePreference();
+  const { reloadInterval, setReloadInterval } = useReloadInterval();
+  const [tempInterval, setTempInterval] = useState(reloadInterval);
   const textColor = useThemeColor({}, 'text');
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
   const borderColor = useThemeColor({}, 'border');
+  const tintColor = useThemeColor({}, 'tint');
 
   const themeOptions: { label: string; value: ThemeOption; icon: ThemeIconName }[] = [
     { label: 'System', value: 'system', icon: 'gear' },
     { label: 'Light', value: 'light', icon: 'sun.max.fill' },
     { label: 'Dark', value: 'dark', icon: 'moon.fill' },
   ];
+
+  const handleIntervalChange = (value: number) => {
+    // Round to nearest 5 seconds for better UX
+    const roundedValue = Math.round(value / 5) * 5;
+    setTempInterval(roundedValue);
+  };
+
+  const handleIntervalComplete = () => {
+    setReloadInterval(tempInterval);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -103,6 +132,43 @@ export default function SettingsScreen() {
                 onPress={() => setThemePreference(option.value)}
               />
             ))}
+          </View>
+        </View>
+
+        <View style={[styles.section, { borderBottomColor: borderColor }]}>
+          <ThemedText style={styles.sectionTitle}>Email Refresh</ThemedText>
+          <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
+            Control how often Temp Mail checks for new emails. A shorter interval means quicker notifications but may use more battery.
+          </ThemedText>
+
+          <View style={styles.sliderContainer}>
+            <View style={styles.sliderLabelContainer}>
+              <ThemedText style={styles.sliderValue}>
+                Refresh every: {formatSeconds(tempInterval)}
+              </ThemedText>
+            </View>
+            
+            <Slider
+              style={styles.slider}
+              minimumValue={20}
+              maximumValue={300}
+              step={5}
+              value={tempInterval}
+              onValueChange={handleIntervalChange}
+              onSlidingComplete={handleIntervalComplete}
+              minimumTrackTintColor={tintColor}
+              maximumTrackTintColor={borderColor}
+              thumbTintColor={tintColor}
+            />
+            
+            <View style={styles.sliderLabels}>
+              <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
+                20s
+              </ThemedText>
+              <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
+                5m
+              </ThemedText>
+            </View>
           </View>
         </View>
 
@@ -181,6 +247,31 @@ const styles = StyleSheet.create({
   },
   selectedIcon: {
     marginRight: 4,
+  },
+  sliderContainer: {
+    marginTop: 8,
+  },
+  sliderLabelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sliderValue: {
+    fontWeight: '500',
+    fontSize: 16,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginTop: -8,
+  },
+  sliderLabel: {
+    fontSize: 12,
   },
   appInfo: {
     marginTop: 16,
