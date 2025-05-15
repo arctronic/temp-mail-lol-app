@@ -37,6 +37,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "apiBaseUrl": "https://temp-mail-api.4zjyot.easypanel.host/"
     }
   }
 }

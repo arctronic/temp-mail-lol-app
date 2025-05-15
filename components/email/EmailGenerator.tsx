@@ -1,0 +1,171 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useEmail } from '@/contexts/EmailContext';
+import { useThemeColor } from '@/hooks/useThemeColor';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+
+interface EmailGeneratorProps {
+  onOpenQRModal: () => void;
+}
+
+// Minimum character length for usernames - should match the value in EmailContext
+const MIN_USERNAME_LENGTH = 4;
+
+export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
+  const { 
+    generatedEmail, 
+    generateNewEmail, 
+    copyEmailToClipboard, 
+    setCustomUsername,
+    domain 
+  } = useEmail();
+
+  const [username, setUsername] = useState<string>('');
+  const [showLengthWarning, setShowLengthWarning] = useState<boolean>(false);
+
+  const backgroundColor = useThemeColor({}, 'background');
+  const textColor = useThemeColor({}, 'text');
+  const borderColor = useThemeColor({}, 'border');
+  const warningColor = useThemeColor({}, 'warning');
+
+  useEffect(() => {
+    // Initialize local username state from generatedEmail
+    if (generatedEmail) {
+      setUsername(generatedEmail.split('@')[0]);
+    }
+  }, [generatedEmail]);
+
+  const handleUsernameChange = (text: string) => {
+    setUsername(text);
+    setCustomUsername(text);
+    
+    // Show warning if username is too short
+    setShowLengthWarning(text.length > 0 && text.length < MIN_USERNAME_LENGTH);
+  };
+
+  return (
+    <ThemedView style={styles.container}>
+      <View style={styles.inputContainer}>
+        <View style={styles.emailInputWrapper}>
+          <TextInput
+            value={username}
+            onChangeText={handleUsernameChange}
+            style={[
+              styles.input,
+              { 
+                backgroundColor: `${backgroundColor}80`, // 50% opacity
+                color: textColor,
+                borderColor: borderColor,
+              }
+            ]}
+            placeholder="Enter username"
+            placeholderTextColor={`${textColor}80`}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <ThemedText style={styles.domain}>@{domain}</ThemedText>
+        </View>
+        
+        {showLengthWarning && (
+          <View style={styles.warningContainer}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={12} color={warningColor} />
+            <ThemedText style={[styles.warningText, { color: warningColor }]}>
+              Username should be at least {MIN_USERNAME_LENGTH} characters
+            </ThemedText>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: pressed ? 0.7 : 1 }
+          ]}
+          onPress={copyEmailToClipboard}
+        >
+          <IconSymbol name="doc.on.doc" size={16} color={textColor} />
+          <ThemedText style={styles.buttonText}>Copy</ThemedText>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: pressed ? 0.7 : 1 }
+          ]}
+          onPress={generateNewEmail}
+        >
+          <IconSymbol name="arrow.clockwise" size={16} color={textColor} />
+          <ThemedText style={styles.buttonText}>New</ThemedText>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: pressed ? 0.7 : 1 }
+          ]}
+          onPress={onOpenQRModal}
+        >
+          <IconSymbol name="qrcode" size={16} color={textColor} />
+          <ThemedText style={styles.buttonText}>QR</ThemedText>
+        </Pressable>
+      </View>
+    </ThemedView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    borderRadius: 12,
+    gap: 16,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  emailInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  input: {
+    flex: 1,
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 16,
+  },
+  domain: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  warningText: {
+    fontSize: 12,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  button: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  buttonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+}); 
