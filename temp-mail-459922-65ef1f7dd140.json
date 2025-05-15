@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "temp-mail-459922",
+  "private_key_id": "65ef1f7dd1408cc85391155df493f89ddbd4c78b",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCt0aeEt1hApHXY\nKe8XPvx+jVr97vg0OhkuyH4tBcPPccbm7O+Ggk5rADAtxrUTDKIBD/ODD5+btMFx\nEoSIx036guz22Mnlor7xZ2WCBDsAj1pTyY8WCkrmhnyYJNqHEKql1zMFMURQiSWS\nFhKW5RckrqIG4cLuaqCeVw6KXcuMH3545wvL5Ha1zjbNtFB0XO2+VRN/+fa1995s\nMcO1dFEUfMm/8M7lABRPQcIUSroegs77+0PJhQsMinB63rG+J9yr0WQMNfrCmtXq\ng5n0IRwPQ8OEVR36fqn4K+aIm9EORzlUic+zPNnUfA5iWJU9IRWP+fQUfkFr8JXO\nRZ3ZTcG/AgMBAAECggEAHrMTyj3zqV8irS4i21E1mUhwFL97OQY14mxo1JzbC62F\nus2INJKZNQ7Qc5VP7/BgQJ3HnZNJ1l9jdwwVOm8xF5i+L470gclvvgVMCV2j6iJn\nirrjubnRpsuD//8qVYadDTNoAHfGIA9JAndBi0MlBkaNuXdwTVmpyq2HlOqiA7pV\nluvQFS/Vemt/VKxImw5OLbYQBEMAg1cVnGuZrfBWnPeIRUOKjILd0Y+vAeeLSt0j\nn8E1STubN8NsZL73LgRJc7sEGyhKEeU/33RtPHal5sLCxxH9DQq+oX99ch/cmrjJ\neOPP2t3ZpV4MUz6cTwmMpnFQGeRlLJSc/y31ul89MQKBgQDhgUt03jN2Rkj9RV15\nlFpCCKXDt3Y4R3EPAuXhTB3FNP9eVIiid9/aQ4zG3cXv/2PqxSLGzkpySXhOtCxU\nA+hbL8PDQgMOkq84GcApte9SI80M168wpY0uLCQXOLOWj3gm1LbpjQdWc4fsLFM6\noISgJjKMEpojT/xm0fUxnSVVdwKBgQDFUw0Xjw5isbdNY7j8nuEBCQl8t5KnzIJS\nVKKDV59MQkJzkB/sMsuOlpDw08cilD2lGIFesaY0zws6Y2KX1AxATnXjtf9obzBh\n13rybIJfqZXz1KPjwS/FcKRUmHFhNWrQM2eSmYgbg6Ooc9ab+WTA9rqiCXGpnxaK\nPk+ml+un+QKBgQDXKWmYucZ6bHeKCNw2fAFejiezxWHsMuZB/27dd6XUG0wpchjo\ng943wEobGVGaO6DXSX90FzLbNxSua6T8CLpz/vAXZu3JwtWifpdmdOxDAFvOjCDh\nFqTNUFqjOXvJBV0MF9vqnaBJsXQYOPa0sqG4uJl0Iu+lD9VxOZVs4FbV4wKBgFeD\nsAjEz7KB8zQFiGOx60TURzrjB84X66ysEK+Dywi9Uk+CmkXdeV4x9PJ6WpVBfd2c\n8rOWwoolUWuB7JY923kh0zM84pvkxGaAdOzTpzbaNcFAi7dVVOSSQq+qNI7SbB8O\nzV69bRoW1hy90261uzPBuaBn49tAzXRekmDmfAOxAoGBANf7ggdQNy9hMYPGMD44\nMcrSKSgrtGfgpL95IhpxmRRmsG8akWsEbOSjG0OsSM9sy/eD7YNc3BrH+UOhCGkB\nse8MsmdZ30FdjNtLx6Y21BgIUvlX2mowu1i2bGG7df2gCoeRK/JJEgfNKG75i1Ux\nCKKX5Bixtbpbt98Zr2uAJt6l\n-----END PRIVATE KEY-----\n",
+  "client_email": "playstore-upload@temp-mail-459922.iam.gserviceaccount.com",
+  "client_id": "107005865043566520458",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/playstore-upload%40temp-mail-459922.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

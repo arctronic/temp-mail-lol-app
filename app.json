@@ -1,27 +1,36 @@
 {
   "expo": {
-    "name": "temp-mail",
+    "name": "Temp-Mail.Lol",
     "slug": "temp-mail",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/splash-icon.png",
     "scheme": "tempmail",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tronics.tempmail"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/splash-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.tronics.tempmail",
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
+      ],
+      "versionCode": 1,
       "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/splash-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -39,7 +48,21 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiBaseUrl": "https://temp-mail-api.4zjyot.easypanel.host/"
+      "apiBaseUrl": "https://temp-mail-api.4zjyot.easypanel.host/",
+      "router": {},
+      "eas": {
+        "projectId": "e942f9b0-6115-4ca4-be70-127d4a4fd766"
+      }
+    },
+    "owner": "tronics",
+    "privacy": "public",
+    "githubUrl": "https://github.com/tempmail/tempmail",
+    "description": "Generate temporary email addresses to protect your privacy. Receive emails without revealing your personal information.",
+    "primaryColor": "#0F5259",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
     }
   }
 }

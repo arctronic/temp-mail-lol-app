@@ -17,7 +17,7 @@ export default function TermsScreen() {
 
         <ThemedText style={styles.sectionTitle}>1. Acceptance of Terms</ThemedText>
         <ThemedText style={styles.paragraph}>
-          By downloading, installing, or using Temp-Mail.Lol application ("App"), you agree to be bound by these Terms of Service. 
+          By downloading, installing, or using Temp-Mail.Lol application (&quot;App&quot;), you agree to be bound by these Terms of Service. 
           If you do not agree to these terms, please do not download, install, or use our App.
         </ThemedText>
         <ThemedText style={styles.paragraph}>
@@ -176,7 +176,7 @@ export default function TermsScreen() {
         <ThemedText style={styles.sectionTitle}>14. Changes to Terms</ThemedText>
         <ThemedText style={styles.paragraph}>
           We may modify these Terms at any time. We will notify users of significant changes by 
-          posting the updated Terms in the App and updating the "Last updated" date.
+          posting the updated Terms in the App and updating the &quot;Last updated&quot; date.
         </ThemedText>
         <ThemedText style={styles.paragraph}>
           Your continued use of the App after any changes to these Terms constitutes your acceptance 

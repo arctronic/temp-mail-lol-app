@@ -99,7 +99,7 @@ export default function PrivacyScreen() {
           You can manage permissions through your device settings at any time.
         </ThemedText>
 
-        <ThemedText style={styles.sectionTitle}>8. Children's Privacy</ThemedText>
+        <ThemedText style={styles.sectionTitle}>8. Children&apos;s Privacy</ThemedText>
         <ThemedText style={styles.paragraph}>
           Our App is not directed to children under the age of 13. We do not knowingly collect personal 
           information from children under 13. If you are a parent or guardian and you believe that your 
