@@ -5,14 +5,24 @@ import { useEmail } from '@/contexts/EmailContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const backgroundColor = useThemeColor({}, 'background');
   const { generatedEmail } = useEmail();
   const [qrVisible, setQRVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor,
+          paddingBottom: Math.max(insets.bottom, 10) 
+        }
+      ]}
+    >
       <EmailGenerator onOpenQRModal={() => setQRVisible(true)} />
       <View style={styles.emailListContainer}>
         <EmailList />
@@ -30,5 +40,6 @@ const styles = StyleSheet.create({
   },
   emailListContainer: {
     flex: 1,
+    marginTop: 12,
   }
 }); 

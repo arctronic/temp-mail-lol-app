@@ -87,12 +87,12 @@ export const EmailContent = ({ message }: EmailContentProps) => {
               <style>
                 body {
                   margin: 0;
-                  padding: 8px;
+                  padding: 12px 16px;
                   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
                   color: ${textColor};
                   background-color: ${backgroundColor};
                   font-size: 16px;
-                  line-height: 1.5;
+                  line-height: 1.6;
                 }
                 a {
                   color: ${tintColor};
@@ -111,23 +111,24 @@ export const EmailContent = ({ message }: EmailContentProps) => {
                 }
                 table {
                   width: 100% !important;
-                  max-width: ${width - 60}px !important;
+                  max-width: ${width - 64}px !important;
                   height: auto !important;
                   border-collapse: collapse;
                 }
                 
                 /* Gmail-like styles */
                 .gmail-quote {
-                  border-left: 1px solid ${borderColor};
-                  padding-left: 12px;
-                  margin-left: 6px;
+                  border-left: 2px solid ${borderColor};
+                  padding-left: 16px;
+                  margin-left: 8px;
                   color: ${textColor}CC;
                 }
                 blockquote {
-                  border-left: 2px solid ${borderColor};
-                  padding-left: 12px;
+                  border-left: 3px solid ${borderColor};
+                  padding-left: 16px;
                   margin-left: 0;
                   margin-right: 0;
+                  color: ${textColor}DD;
                 }
               </style>
             </head>
@@ -151,9 +152,9 @@ export const EmailContent = ({ message }: EmailContentProps) => {
                   font-family: sans-serif;
                   color: ${textColor};
                   background-color: ${backgroundColor};
-                  padding: 8px;
+                  padding: 12px 16px;
                   font-size: 16px;
-                  line-height: 1.5;
+                  line-height: 1.6;
                 }
                 pre {
                   white-space: pre-wrap;
@@ -253,14 +254,14 @@ export const EmailContent = ({ message }: EmailContentProps) => {
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   loadingContainer: {
-    padding: 16,
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 12,
     height: 200,
   },
   webView: {
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
   },
   emptyText: {
-    padding: 16,
+    padding: 20,
     fontSize: 16,
     textAlign: 'center',
     fontStyle: 'italic',

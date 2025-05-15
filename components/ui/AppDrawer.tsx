@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    width: '80%',
+    width: '85%',
     maxWidth: 320,
     height: '100%',
     position: 'absolute',
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerContent: {
@@ -277,12 +277,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   avatarText: {
     fontSize: 18,
@@ -295,14 +295,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: 4,
   },
   email: {
     fontSize: 12,
     opacity: 0.6,
-    marginTop: 2,
   },
   closeButton: {
-    padding: 8,
+    padding: 10,
     borderRadius: 20,
   },
   content: {
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   item: {
-    padding: 16,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   itemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   itemLabel: {
     fontSize: 16,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   footer: {
-    padding: 16,
+    padding: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },

@@ -268,37 +268,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     borderBottomWidth: 1,
   },
   backButton: {
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
   },
   toolbarButton: {
-    padding: 8,
+    padding: 10,
+    marginLeft: 4,
   },
   toolbarActions: {
     flexDirection: 'row',
-    gap: 4,
+    gap: 8,
   },
   content: {
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
-    paddingTop: 12,
-    gap: 16,
-    paddingBottom: 24, // Reduced padding since we removed the fixed button
+    padding: 20,
+    paddingTop: 16,
+    gap: 20,
+    paddingBottom: 30,
   },
   subjectContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   subjectIcon: {
-    marginRight: 6,
+    marginRight: 10,
     opacity: 0.7,
   },
   subject: {
@@ -309,12 +310,12 @@ const styles = StyleSheet.create({
   senderContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 16,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -342,37 +343,37 @@ const styles = StyleSheet.create({
   emailDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   recipientText: {
     fontSize: 14,
     opacity: 0.7,
   },
   detailsButton: {
-    padding: 4,
-    marginLeft: 4,
+    padding: 6,
+    marginLeft: 6,
   },
   detailsContainer: {
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-    gap: 8,
+    borderRadius: 10,
+    padding: 16,
+    marginTop: 12,
+    gap: 10,
   },
   detailRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   detailLabel: {
     fontSize: 14,
     opacity: 0.7,
-    width: 48,
+    width: 54,
   },
   detailValue: {
     fontSize: 14,
     flex: 1,
   },
   messageContainer: {
-    gap: 16,
+    gap: 20,
   },
 }); 

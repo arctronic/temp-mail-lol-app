@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Email, useEmail } from '@/contexts/EmailContext';
+import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -14,7 +15,9 @@ interface EmailListProps {
 
 export const EmailList = ({ onViewEmail }: EmailListProps) => {
   const { emails, isLoading, refetch, error } = useEmail();
+  const { reloadInterval } = useReloadInterval();
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
+  const [timeUntilRefresh, setTimeUntilRefresh] = useState(reloadInterval);
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
@@ -38,6 +41,26 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
       setHasInitiallyLoaded(true);
     }
   }, [isLoading, hasInitiallyLoaded]);
+
+  // Countdown timer for next refresh
+  useEffect(() => {
+    if (isLoading) {
+      setTimeUntilRefresh(reloadInterval);
+      return;
+    }
+
+    setTimeUntilRefresh(reloadInterval);
+    const interval = setInterval(() => {
+      setTimeUntilRefresh(prev => {
+        if (prev <= 1) {
+          return reloadInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLoading, reloadInterval]);
 
   // Filter and sort emails
   const processedEmails = useMemo(() => {
@@ -74,6 +97,15 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
     }
   };
 
+  const formatTimeUntilRefresh = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    if (minutes > 0) {
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${remainingSeconds}s`;
+  };
+
   const handleEmailPress = (email: Email) => {
     if (onViewEmail) {
       // Use the callback if provided (for backward compatibility)
@@ -101,7 +133,10 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
         ]}
         onPress={() => handleEmailPress(email)}
       >
-        <View style={styles.senderCircle}>
+        <View style={[
+          styles.senderCircle, 
+          { backgroundColor: accentColor }
+        ]}>
           <ThemedText style={styles.senderInitial}>
             {email.sender.charAt(0).toUpperCase()}
           </ThemedText>
@@ -134,16 +169,39 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
 
   const renderListHeader = () => (
     <ThemedView style={[styles.listHeader, { borderBottomColor: borderColor }]}>
-      <Pressable 
-        style={styles.sortButton}
-        onPress={toggleSortDirection}
-      >
-        <ThemedText style={styles.sortText}>Sort</ThemedText>
+      <View style={styles.refreshInfoContainer}>
         <IconSymbol 
-          name={sortDirection === 'asc' ? 'arrow.up' : 'arrow.down'} 
-          size={14} 
-          color={textColor} 
+          name="arrow.clockwise" 
+          size={12} 
+          color={`${textColor}80`} 
         />
+        <ThemedText style={styles.refreshInfoText}>
+          Next refresh in {formatTimeUntilRefresh(timeUntilRefresh)}
+        </ThemedText>
+      </View>
+      <Pressable 
+        style={({ pressed }) => [
+          styles.sortButton,
+          { 
+            backgroundColor: isLoading ? `${accentColor}20` : pressed ? `${accentColor}15` : 'transparent',
+            opacity: isLoading ? 0.7 : 1
+          }
+        ]}
+        onPress={toggleSortDirection}
+        disabled={isLoading}
+      >
+        <ThemedText style={[styles.sortText, isLoading && { opacity: 0.7 }]}>
+          Sort by date
+        </ThemedText>
+        {isLoading ? (
+          <ActivityIndicator size="small" color={accentColor} style={styles.sortLoader} />
+        ) : (
+          <IconSymbol 
+            name={sortDirection === 'asc' ? 'arrow.up' : 'arrow.down'} 
+            size={16} 
+            color={textColor} 
+          />
+        )}
       </Pressable>
     </ThemedView>
   );
@@ -186,6 +244,9 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
           <ThemedText style={styles.emptySubtext}>
             Emails sent to your address will appear here
           </ThemedText>
+          <ThemedText style={styles.pullToRefreshText}>
+            Pull down to refresh
+          </ThemedText>
         </>
       )}
     </ThemedView>
@@ -221,40 +282,59 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderBottomWidth: 1,
+    marginBottom: 4,
+  },
+  refreshInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  refreshInfoText: {
+    fontSize: 12,
+    opacity: 0.6,
   },
   sortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 6,
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(150, 150, 150, 0.2)',
   },
   sortText: {
-    fontSize: 12,
-    marginRight: 4,
-    fontWeight: '500',
+    fontSize: 13,
+    marginRight: 8,
+    fontWeight: '600',
+  },
+  sortLoader: {
+    marginLeft: 2,
   },
   emailItem: {
     flexDirection: 'row',
-    padding: 12,
+    padding: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     alignItems: 'center',
   },
   senderCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#6366f1',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#6366f1', // Will be overridden dynamically
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
   senderInitial: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   emailContent: {
@@ -264,13 +344,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   sender: {
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
-    marginRight: 8,
+    marginRight: 12,
   },
   date: {
     fontSize: 12,
@@ -279,17 +359,18 @@ const styles = StyleSheet.create({
   subject: {
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   preview: {
     fontSize: 13,
     opacity: 0.7,
+    lineHeight: 18,
   },
   attachmentContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 6,
   },
   attachmentText: {
     fontSize: 12,
@@ -306,20 +387,27 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '500',
+    marginTop: 12,
   },
   emptySubtext: {
     fontSize: 14,
     opacity: 0.7,
     textAlign: 'center',
+    maxWidth: 280,
+  },
+  pullToRefreshText: {
+    fontSize: 13,
+    opacity: 0.5,
+    marginTop: 20,
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 20,
-    marginTop: 16,
+    marginTop: 20,
     gap: 8,
   },
   retryButtonText: {

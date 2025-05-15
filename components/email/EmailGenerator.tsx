@@ -144,22 +144,22 @@ export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: 20,
     borderRadius: 12,
-    gap: 16,
+    gap: 20,
   },
   inputContainer: {
-    gap: 8,
+    gap: 10,
   },
   emailInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
   input: {
     flex: 1,
-    height: 44,
-    paddingHorizontal: 12,
+    height: 48,
+    paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
     fontSize: 16,
@@ -167,18 +167,21 @@ const styles = StyleSheet.create({
   domain: {
     fontSize: 16,
     fontWeight: '500',
+    marginLeft: 4,
   },
   warningContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    marginTop: 4,
+    marginLeft: 4,
   },
   warningText: {
     fontSize: 12,
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
   },
   button: {
     flex: 1,
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 44,
+    height: 48,
     borderRadius: 8,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
@@ -199,7 +202,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 44,
+    height: 48,
     borderRadius: 8,
     paddingHorizontal: 16,
   },

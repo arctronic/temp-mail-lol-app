@@ -57,6 +57,7 @@ export default function DrawerLayout() {
             backgroundColor: backgroundColor,
             borderBottomWidth: 1,
             borderBottomColor: borderColor,
+            height: 60,  // Increase header height
           },
           headerTintColor: textColor,
           headerShadowVisible: false,
@@ -82,7 +83,17 @@ export default function DrawerLayout() {
           ),
         }}
         drawerContent={() => null} // Hide the default drawer content
-      />
+      >
+        <Drawer.Screen
+          name="index"
+          options={{
+            title: "Temp-Mail.Lol",
+            headerTitleStyle: {
+              fontWeight: '600',
+            }
+          }}
+        />
+      </Drawer>
       
       {/* Our custom drawer */}
       {isDrawerOpen && (
@@ -94,8 +105,8 @@ export default function DrawerLayout() {
 
 const styles = StyleSheet.create({
   menuButton: {
-    padding: 8,
-    marginLeft: 8,
+    padding: 12,
+    marginLeft: 10,
     borderRadius: 8,
   },
 }); 
