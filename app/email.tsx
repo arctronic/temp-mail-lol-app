@@ -187,7 +187,7 @@ ${displayEmail.message}
                 onPress={() => setShowDetails(!showDetails)}
               >
                 <IconSymbol 
-                  name={showDetails ? "chevron.up" : "chevron.down"} 
+                  name={showDetails ? "arrow.up" : "arrow.down"} 
                   size={16} 
                   color={textColor} 
                 />
