@@ -202,9 +202,12 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
         ListEmptyComponent={renderEmptyList}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading && hasInitiallyLoaded}
+            refreshing={isLoading}
             onRefresh={refetch}
-            tintColor={textColor}
+            colors={[accentColor]}
+            tintColor={accentColor}
+            title="Pull to refresh"
+            titleColor={textColor}
           />
         }
       />

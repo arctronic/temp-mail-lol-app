@@ -5,7 +5,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { IconSymbol } from '../components/ui/IconSymbol';
-import { useEmail } from '../contexts/EmailContext';
+import { Email, useEmail } from '../contexts/EmailContext';
+import { useLookup } from '../contexts/LookupContext';
 import { useThemeColor } from '../hooks/useThemeColor';
 
 // Import components from the email directory
@@ -13,27 +14,48 @@ import { EmailAttachments } from '../components/email/EmailAttachments';
 import { EmailContent } from '../components/email/EmailContent';
 
 export default function EmailDetailScreen() {
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const { id, fromLookup } = params;
+  const isFromLookup = fromLookup === 'true';
+  
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'tint');
   const [showDetails, setShowDetails] = useState(false);
+  
   const { emails, refetch } = useEmail();
+  const { lookupEmails } = useLookup();
   
   // Disable initial render loading state entirely
   const [isInitialRender, setIsInitialRender] = useState(false);
   
-  // Find the email by id
-  const email = emails.find(e => e.id?.toString() === id?.toString());
+  // Find the email either in regular emails or lookup emails
+  let email: Email | undefined;
+  
+  if (isFromLookup) {
+    // Look through all lookup emails for this message
+    for (const lookupEmail of lookupEmails) {
+      const found = lookupEmail.messages.find(
+        m => m.id?.toString() === id?.toString()
+      );
+      if (found) {
+        email = found;
+        break;
+      }
+    }
+  } else {
+    // Find in regular emails
+    email = emails.find(e => e.id?.toString() === id?.toString());
+  }
   
   // Setup a dummy email to render while waiting for real data
   const dummyEmail = {
     id: id?.toString() || "temp-id",
     date: { $date: new Date().toISOString() },
-    sender: "Loading sender...",
-    subject: "Loading subject...",
-    receiver: "Loading receiver...",
+    sender: params.from?.toString() || "Loading sender...",
+    subject: params.subject?.toString() || "Loading subject...",
+    receiver: params.to?.toString() || "Loading receiver...",
     message: "Loading message content...",
     attachments: [],
     created_at: { $date: new Date().toISOString() },
@@ -49,7 +71,7 @@ export default function EmailDetailScreen() {
     return () => {};
   }, []);
 
-  const date = new Date(displayEmail.date.$date);
+  const date = new Date(params.date?.toString() || displayEmail.date.$date);
   const formattedDate = date.toLocaleDateString(undefined, {
     weekday: 'long',
     year: 'numeric',
@@ -102,8 +124,12 @@ ${displayEmail.message}
   };
 
   const goBack = () => {
-    // Navigate back to the drawer home screen
-    router.replace('/(drawer)');
+    // Navigate back based on where the user came from
+    if (isFromLookup) {
+      router.push('/lookup' as any);
+    } else {
+      router.replace('/(drawer)');
+    }
   };
 
   return (
@@ -220,23 +246,6 @@ ${displayEmail.message}
           <EmailContent message={displayEmail.message} />
         </View>
       </ScrollView>
-
-      {/* Fixed position back button at the bottom of screen */}
-      <View style={[styles.bottomNavContainer, { backgroundColor, borderTopColor: borderColor }]}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.inboxButton,
-            { 
-              backgroundColor: accentColor,
-              opacity: pressed ? 0.8 : 1 
-            }
-          ]}
-          onPress={goBack}
-        >
-          <IconSymbol name="tray.fill" size={20} color="white" />
-          <ThemedText style={styles.inboxButtonText}>Return to Inbox</ThemedText>
-        </Pressable>
-      </View>
     </ThemedView>
   );
 }
@@ -281,7 +290,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 12,
     gap: 16,
-    paddingBottom: 100, // Add more padding for the fixed button
+    paddingBottom: 24, // Reduced padding since we removed the fixed button
   },
   subjectContainer: {
     flexDirection: 'row',
@@ -365,33 +374,5 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     gap: 16,
-  },
-  bottomNavContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    borderTopWidth: 1,
-    backgroundColor: 'rgba(255,255,255,0.9)',  // Semi-transparent background
-    shadowColor: '#000',                        // Add subtle shadow
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 5,                              // Android shadow
-  },
-  inboxButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    width: '100%',
-    gap: 8,
-  },
-  inboxButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
   },
 }); 

@@ -40,7 +40,11 @@ type IconName =
   | 'square.and.arrow.up'
   | 'arrowshape.turn.up.left.fill'
   | 'doc'
-  | 'arrow.down.circle';
+  | 'arrow.down.circle'
+  | 'list.bullet.clipboard.fill'
+  | 'at'
+  | 'envelope.badge'
+  | 'plus';
 
 /**
  * Mapping from SF Symbols to Material Icons.
@@ -52,8 +56,8 @@ const MAPPING: Record<string, string> = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
-  'chevron.up': 'chevron-up',
-  'chevron.down': 'chevron-down',
+  'chevron.up': 'keyboard-arrow-up',
+  'chevron.down': 'keyboard-arrow-down',
   'chevron.left': 'chevron-left',
   'xmark': 'close',
   'line.3.horizontal': 'menu',
@@ -82,7 +86,11 @@ const MAPPING: Record<string, string> = {
   'square.and.arrow.up': 'share',
   'arrowshape.turn.up.left.fill': 'reply',
   'doc': 'insert-drive-file',
-  'arrow.down.circle': 'download'
+  'arrow.down.circle': 'download',
+  'list.bullet.clipboard.fill': 'bookmarks',
+  'at': 'alternate-email',
+  'envelope.badge': 'mark_email_unread',
+  'plus': 'add'
 };
 
 /**

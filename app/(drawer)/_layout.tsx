@@ -82,64 +82,7 @@ export default function DrawerLayout() {
           ),
         }}
         drawerContent={() => null} // Hide the default drawer content
-      >
-        <Drawer.Screen
-          name="index"
-          options={{
-            title: 'Temp Mail',
-            drawerLabel: 'Home',
-          }}
-        />
-        <Drawer.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            drawerLabel: 'Settings',
-          }}
-        />
-        <Drawer.Screen
-          name="about"
-          options={{
-            title: 'About',
-            drawerLabel: 'About',
-          }}
-        />
-        <Drawer.Screen
-          name="blog"
-          options={{
-            title: 'Blog',
-            drawerLabel: 'Blog',
-          }}
-        />
-        <Drawer.Screen
-          name="contact"
-          options={{
-            title: 'Contact',
-            drawerLabel: 'Contact',
-          }}
-        />
-        <Drawer.Screen
-          name="faq"
-          options={{
-            title: 'FAQ',
-            drawerLabel: 'FAQ',
-          }}
-        />
-        <Drawer.Screen
-          name="privacy"
-          options={{
-            title: 'Privacy Policy',
-            drawerLabel: 'Privacy Policy',
-          }}
-        />
-        <Drawer.Screen
-          name="terms"
-          options={{
-            title: 'Terms of Service',
-            drawerLabel: 'Terms of Service',
-          }}
-        />
-      </Drawer>
+      />
       
       {/* Our custom drawer */}
       {isDrawerOpen && (

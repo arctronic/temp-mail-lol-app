@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useEmail } from '@/contexts/EmailContext';
+import { useLookup } from '@/contexts/LookupContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -21,6 +22,8 @@ export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
     setCustomUsername,
     domain 
   } = useEmail();
+  
+  const { addEmailToLookup } = useLookup();
 
   const [username, setUsername] = useState<string>('');
   const [showLengthWarning, setShowLengthWarning] = useState<boolean>(false);
@@ -29,6 +32,7 @@ export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const warningColor = useThemeColor({}, 'warning');
+  const tintColor = useThemeColor({}, 'tint');
 
   useEffect(() => {
     // Initialize local username state from generatedEmail
@@ -43,6 +47,14 @@ export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
     
     // Show warning if username is too short
     setShowLengthWarning(text.length > 0 && text.length < MIN_USERNAME_LENGTH);
+  };
+  
+  const handleSaveToLookup = async () => {
+    if (generatedEmail && username.length >= MIN_USERNAME_LENGTH) {
+      await addEmailToLookup(generatedEmail);
+    } else if (username.length < MIN_USERNAME_LENGTH) {
+      setShowLengthWarning(true);
+    }
   };
 
   return (
@@ -112,6 +124,20 @@ export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
           <ThemedText style={styles.buttonText}>QR</ThemedText>
         </Pressable>
       </View>
+      
+      <Pressable
+        style={({ pressed }) => [
+          styles.saveButton,
+          { 
+            opacity: pressed ? 0.8 : 1,
+            backgroundColor: tintColor
+          }
+        ]}
+        onPress={handleSaveToLookup}
+      >
+        <IconSymbol name="list.bullet.clipboard.fill" size={20} color="#fff" />
+        <ThemedText style={styles.saveButtonText}>Save to Lookup List</ThemedText>
+      </Pressable>
     </ThemedView>
   );
 };
@@ -167,5 +193,19 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'white',
   },
 }); 

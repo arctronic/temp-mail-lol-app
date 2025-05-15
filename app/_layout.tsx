@@ -2,7 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
 import { AppState, StyleSheet } from 'react-native';
+import { GlobalLayout } from '../components/ui/GlobalLayout';
 import { EmailProvider } from '../contexts/EmailContext';
+import { LookupProvider } from '../contexts/LookupContext';
 import { ReloadIntervalProvider } from '../contexts/ReloadIntervalContext';
 import { ThemeProvider, useThemePreference } from '../contexts/ThemeContext';
 
@@ -71,7 +73,11 @@ export default function RootLayout() {
       <ThemeProvider>
         <ReloadIntervalProvider>
           <EmailProvider>
-            <AppWithTheme />
+            <LookupProvider>
+              <GlobalLayout>
+                <AppWithTheme />
+              </GlobalLayout>
+            </LookupProvider>
           </EmailProvider>
         </ReloadIntervalProvider>
       </ThemeProvider>

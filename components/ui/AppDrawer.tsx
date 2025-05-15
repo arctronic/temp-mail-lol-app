@@ -22,6 +22,11 @@ const drawerItems: DrawerItem[] = [
     route: '/(drawer)',
   },
   {
+    label: 'My Lookup List',
+    icon: 'list.bullet.clipboard.fill',
+    route: '/lookup',
+  },
+  {
     label: 'Settings',
     icon: 'gear',
     route: '/settings',

@@ -139,9 +139,7 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
         }
 
         const data = await response.json();
-        // console.log('API /api/emails response:', data);
-        
-        // Return an empty array immediately if response is empty
+                // Return an empty array immediately if response is empty
         if (!data || !Array.isArray(data) || data.length === 0) {
           return [];
         }
