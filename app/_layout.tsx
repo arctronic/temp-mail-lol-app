@@ -63,6 +63,55 @@ function AppWithTheme() {
           presentation: 'modal',
         }}
       />
+      
+      <Stack.Screen
+        name="settings"
+        options={{
+          headerShown: false, // Hide header as we now use drawer header
+        }}
+      />
+      
+      <Stack.Screen
+        name="about"
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      <Stack.Screen
+        name="blog"
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      <Stack.Screen
+        name="contact"
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      <Stack.Screen
+        name="faq"
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      <Stack.Screen
+        name="privacy"
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      <Stack.Screen
+        name="terms"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

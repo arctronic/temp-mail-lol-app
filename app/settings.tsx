@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -85,7 +85,7 @@ function formatSeconds(seconds: number): string {
 }
 
 export default function SettingsScreen() {
-  const { themePreference, setThemePreference } = useThemePreference();
+  const { themePreference, setThemePreference, themeVersion } = useThemePreference();
   const { reloadInterval, setReloadInterval } = useReloadInterval();
   const [tempInterval, setTempInterval] = useState(reloadInterval);
   const textColor = useThemeColor({}, 'text');
@@ -111,87 +111,88 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ThemedText style={styles.title}>Settings</ThemedText>
+    <View style={styles.container} key={`settings-screen-${themeVersion}`}>
+      <PageHeader title="Settings" showBackButton />
+      <ScrollView>
+        <View style={styles.content}>
+          <View style={[styles.section, { borderBottomColor: borderColor }]}>
+            <ThemedText style={styles.sectionTitle}>Appearance</ThemedText>
+            <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
+              Choose how Temp Mail looks to you. Select a theme preference below.
+            </ThemedText>
 
-        <View style={[styles.section, { borderBottomColor: borderColor }]}>
-          <ThemedText style={styles.sectionTitle}>Appearance</ThemedText>
-          <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
-            Choose how Temp Mail looks to you. Select a theme preference below.
-          </ThemedText>
+            <View style={styles.themeOptions}>
+              {themeOptions.map((option) => (
+                <ThemeButton
+                  key={option.value}
+                  label={option.label}
+                  value={option.value}
+                  icon={option.icon}
+                  isSelected={themePreference === option.value}
+                  onPress={() => setThemePreference(option.value)}
+                />
+              ))}
+            </View>
+          </View>
 
-          <View style={styles.themeOptions}>
-            {themeOptions.map((option) => (
-              <ThemeButton
-                key={option.value}
-                label={option.label}
-                value={option.value}
-                icon={option.icon}
-                isSelected={themePreference === option.value}
-                onPress={() => setThemePreference(option.value)}
+          <View style={[styles.section, { borderBottomColor: borderColor }]}>
+            <ThemedText style={styles.sectionTitle}>Email Refresh</ThemedText>
+            <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
+              Control how often Temp Mail checks for new emails. A shorter interval means quicker notifications but may use more battery.
+            </ThemedText>
+
+            <View style={styles.sliderContainer}>
+              <View style={styles.sliderLabelContainer}>
+                <ThemedText style={styles.sliderValue}>
+                  Refresh every: {formatSeconds(tempInterval)}
+                </ThemedText>
+              </View>
+              
+              <Slider
+                style={styles.slider}
+                minimumValue={20}
+                maximumValue={300}
+                step={5}
+                value={tempInterval}
+                onValueChange={handleIntervalChange}
+                onSlidingComplete={handleIntervalComplete}
+                minimumTrackTintColor={tintColor}
+                maximumTrackTintColor={borderColor}
+                thumbTintColor={tintColor}
               />
-            ))}
-          </View>
-        </View>
-
-        <View style={[styles.section, { borderBottomColor: borderColor }]}>
-          <ThemedText style={styles.sectionTitle}>Email Refresh</ThemedText>
-          <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
-            Control how often Temp Mail checks for new emails. A shorter interval means quicker notifications but may use more battery.
-          </ThemedText>
-
-          <View style={styles.sliderContainer}>
-            <View style={styles.sliderLabelContainer}>
-              <ThemedText style={styles.sliderValue}>
-                Refresh every: {formatSeconds(tempInterval)}
-              </ThemedText>
+              
+              <View style={styles.sliderLabels}>
+                <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
+                  20s
+                </ThemedText>
+                <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
+                  5m
+                </ThemedText>
+              </View>
             </View>
-            
-            <Slider
-              style={styles.slider}
-              minimumValue={20}
-              maximumValue={300}
-              step={5}
-              value={tempInterval}
-              onValueChange={handleIntervalChange}
-              onSlidingComplete={handleIntervalComplete}
-              minimumTrackTintColor={tintColor}
-              maximumTrackTintColor={borderColor}
-              thumbTintColor={tintColor}
-            />
-            
-            <View style={styles.sliderLabels}>
-              <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
-                20s
-              </ThemedText>
-              <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
-                5m
-              </ThemedText>
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>About</ThemedText>
+            <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
+              Temp Mail is a service providing disposable temporary email addresses.
+              Use it to protect your privacy when signing up for services online.
+            </ThemedText>
+
+            <View style={styles.appInfo}>
+              <View style={styles.appInfoRow}>
+                <ThemedText style={{ color: textSecondaryColor }}>Version</ThemedText>
+                <ThemedText>1.0.0</ThemedText>
+              </View>
+              <View style={[styles.appInfoRow, { borderBottomColor: borderColor }]}>
+                <ThemedText style={{ color: textSecondaryColor }}>Build</ThemedText>
+                <ThemedText>2023.10.01</ThemedText>
+              </View>
             </View>
           </View>
         </View>
-
-        <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>About</ThemedText>
-          <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
-            Temp Mail is a service providing disposable temporary email addresses.
-            Use it to protect your privacy when signing up for services online.
-          </ThemedText>
-
-          <View style={styles.appInfo}>
-            <View style={styles.appInfoRow}>
-              <ThemedText style={{ color: textSecondaryColor }}>Version</ThemedText>
-              <ThemedText>1.0.0</ThemedText>
-            </View>
-            <View style={[styles.appInfoRow, { borderBottomColor: borderColor }]}>
-              <ThemedText style={{ color: textSecondaryColor }}>Build</ThemedText>
-              <ThemedText>2023.10.01</ThemedText>
-            </View>
-          </View>
-        </View>
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -200,14 +201,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingTop: 20,
+    padding: 16,
     paddingBottom: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 24,
   },
   section: {
     marginBottom: 30,

@@ -3,7 +3,6 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
 
@@ -22,6 +21,7 @@ interface EmailAttachmentsProps {
 
 export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
   const textColor = useThemeColor({}, 'text');
+  const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({}, 'border');
   const [downloadingAttachments, setDownloadingAttachments] = useState<Record<string, boolean>>({});
 
@@ -38,27 +38,19 @@ export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Check if sharing is available
-      if (!(await Sharing.isAvailableAsync())) {
-        throw new Error('Sharing is not available on this device');
-      }
+      // Show success message
+      Alert.alert(
+        'Attachment Cached',
+        `${attachment.filename} has been downloaded to the app's cache. You can find downloaded files in your device's temp storage.`,
+        [{ text: 'OK' }]
+      );
 
-      // Share the file
-      await Sharing.shareAsync(fileUri, {
-        dialogTitle: `Share ${attachment.filename}`,
-        mimeType: getMimeType(attachment.filename),
-      });
-
-      // Clean up the file after sharing
-      await FileSystem.deleteAsync(fileUri, { idempotent: true });
     } catch (error) {
       console.error('Error downloading attachment:', error);
       
       let errorMessage = 'Failed to download attachment.';
       if (error instanceof Error) {
-        if (error.message.includes('not available')) {
-          errorMessage = 'Sharing is not available on this device.';
-        } else if (error.message.includes('permission')) {
+        if (error.message.includes('permission')) {
           errorMessage = 'Permission denied to access the file.';
         } else if (error.message.includes('storage')) {
           errorMessage = 'Not enough storage space available.';
@@ -123,7 +115,7 @@ export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
                 {attachment.filename}
               </ThemedText>
               {isDownloading ? (
-                <ActivityIndicator size="small" color={textColor} />
+                <ActivityIndicator size="small" color={tintColor} />
               ) : (
                 <IconSymbol name="arrow.down.circle" size={20} color={textColor} />
               )}

@@ -25,7 +25,7 @@ export default function NotFoundScreen() {
               opacity: pressed ? 0.8 : 1 
             }
           ]}
-          onPress={() => router.replace('/(drawer)')}
+          onPress={() => router.replace('/')}
         >
           <IconSymbol name="house.fill" size={20} color="#fff" />
           <ThemedText style={styles.buttonText}>Go to Home</ThemedText>

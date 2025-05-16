@@ -93,8 +93,8 @@ export default function DrawerLayout() {
             </Pressable>
           ),
           headerTitleStyle: {
-            fontWeight: '600',
-            fontSize: 18,
+            fontSize: 24,
+            fontWeight: 'bold',
           },
         }}
         drawerContent={() => null} // Hide the default drawer content
@@ -109,6 +109,12 @@ export default function DrawerLayout() {
           name="lookup"
           options={{
             title: "My Lookup List",
+          }}
+        />
+        <Drawer.Screen
+          name="../settings"
+          options={{
+            title: "Settings",
           }}
         />
       </Drawer>

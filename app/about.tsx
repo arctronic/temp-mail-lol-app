@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { AppHeader } from '@/components/ui/AppHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React from 'react';
@@ -12,7 +12,7 @@ export default function AboutScreen() {
 
   return (
     <View style={styles.container} key={`about-screen-${themeVersion}`}>
-      <AppHeader title="About" />
+      <PageHeader title="About" showBackButton />
       <ScrollView style={styles.scrollView}>
         <ThemedView style={[styles.content, { borderColor }]}>
           <ThemedText style={styles.title}>About Temp Mail</ThemedText>

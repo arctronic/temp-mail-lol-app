@@ -7,14 +7,10 @@ import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-interface EmailGeneratorProps {
-  onOpenQRModal: () => void;
-}
-
 // Minimum character length for usernames - should match the value in EmailContext
 const MIN_USERNAME_LENGTH = 4;
 
-export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
+export const EmailGenerator = () => {
   const { 
     generatedEmail, 
     generateNewEmail, 
@@ -111,17 +107,6 @@ export const EmailGenerator = ({ onOpenQRModal }: EmailGeneratorProps) => {
         >
           <IconSymbol name="arrow.clockwise" size={16} color={textColor} />
           <ThemedText style={styles.buttonText}>New</ThemedText>
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.button,
-            { opacity: pressed ? 0.7 : 1 }
-          ]}
-          onPress={onOpenQRModal}
-        >
-          <IconSymbol name="qrcode" size={16} color={textColor} />
-          <ThemedText style={styles.buttonText}>QR</ThemedText>
         </Pressable>
       </View>
       

@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { AppHeader } from '@/components/ui/AppHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useState } from 'react';
@@ -63,7 +63,7 @@ export default function ContactScreen() {
 
   return (
     <View style={styles.container} key={`contact-screen-${themeVersion}`}>
-      <AppHeader title="Contact Us" />
+      <PageHeader title="Contact Us" showBackButton />
       <KeyboardAvoidingView
         style={styles.keyboardAvoidView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { AppHeader } from '@/components/ui/AppHeader';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useState } from 'react';
@@ -62,7 +62,7 @@ export default function FAQScreen() {
 
   return (
     <View style={styles.container} key={`faq-screen-${themeVersion}`}>
-      <AppHeader title="FAQ" />
+      <PageHeader title="FAQ" showBackButton />
       <ScrollView style={styles.scrollView}>
         <ThemedView style={styles.content}>
           <ThemedText style={styles.title}>Frequently Asked Questions</ThemedText>

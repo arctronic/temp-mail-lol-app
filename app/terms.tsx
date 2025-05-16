@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { AppHeader } from '@/components/ui/AppHeader';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React from 'react';
@@ -12,7 +12,7 @@ export default function TermsScreen() {
 
   return (
     <View style={styles.container} key={`terms-screen-${themeVersion}`}>
-      <AppHeader title="Terms of Service" />
+      <PageHeader title="Terms of Service" showBackButton />
       <ScrollView style={styles.scrollView}>
         <ThemedView style={styles.content}>
           <ThemedText style={styles.title}>Terms of Service</ThemedText>
