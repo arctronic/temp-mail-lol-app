@@ -1,6 +1,8 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { AppHeader } from '@/components/ui/AppHeader';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -49,6 +51,7 @@ export default function FAQScreen() {
   const [expandedItems, setExpandedItems] = useState<Record<number, boolean>>({});
   const borderColor = useThemeColor({}, 'border');
   const textColor = useThemeColor({}, 'text');
+  const { themeVersion } = useThemePreference();
 
   const toggleItem = (index: number) => {
     setExpandedItems(prev => ({
@@ -58,53 +61,56 @@ export default function FAQScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ThemedText style={styles.title}>Frequently Asked Questions</ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Find answers to common questions about Temp Mail
-        </ThemedText>
-
-        <View style={styles.faqList}>
-          {faqItems.map((item, index) => (
-            <ThemedView
-              key={index}
-              style={[
-                styles.faqItem,
-                { borderBottomColor: borderColor },
-                index < faqItems.length - 1 && styles.faqItemBorder,
-              ]}
-            >
-              <Pressable
-                style={({ pressed }) => [
-                  styles.questionContainer,
-                  { opacity: pressed ? 0.7 : 1 }
-                ]}
-                onPress={() => toggleItem(index)}
-              >
-                <ThemedText style={styles.question}>{item.question}</ThemedText>
-                <IconSymbol
-                  name={expandedItems[index] ? 'chevron.up' : 'chevron.down'}
-                  size={20}
-                  color={textColor}
-                />
-              </Pressable>
-              
-              {expandedItems[index] && (
-                <ThemedText style={styles.answer}>{item.answer}</ThemedText>
-              )}
-            </ThemedView>
-          ))}
-        </View>
-
-        <ThemedView style={[styles.contactCard, { borderColor }]}>
-          <ThemedText style={styles.contactTitle}>Still have questions?</ThemedText>
-          <ThemedText style={styles.contactText}>
-            Feel free to contact us through our contact form. We&apos;re here to help!
+    <View style={styles.container} key={`faq-screen-${themeVersion}`}>
+      <AppHeader title="FAQ" />
+      <ScrollView style={styles.scrollView}>
+        <ThemedView style={styles.content}>
+          <ThemedText style={styles.title}>Frequently Asked Questions</ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Find answers to common questions about Temp Mail
           </ThemedText>
+
+          <View style={styles.faqList}>
+            {faqItems.map((item, index) => (
+              <ThemedView
+                key={index}
+                style={[
+                  styles.faqItem,
+                  { borderBottomColor: borderColor },
+                  index < faqItems.length - 1 && styles.faqItemBorder,
+                ]}
+              >
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.questionContainer,
+                    { opacity: pressed ? 0.7 : 1 }
+                  ]}
+                  onPress={() => toggleItem(index)}
+                >
+                  <ThemedText style={styles.question}>{item.question}</ThemedText>
+                  <IconSymbol
+                    name={expandedItems[index] ? 'chevron.up' : 'chevron.down'}
+                    size={20}
+                    color={textColor}
+                  />
+                </Pressable>
+                
+                {expandedItems[index] && (
+                  <ThemedText style={styles.answer}>{item.answer}</ThemedText>
+                )}
+              </ThemedView>
+            ))}
+          </View>
+
+          <ThemedView style={[styles.contactCard, { borderColor }]}>
+            <ThemedText style={styles.contactTitle}>Still have questions?</ThemedText>
+            <ThemedText style={styles.contactText}>
+              Feel free to contact us through our contact form. We&apos;re here to help!
+            </ThemedText>
+          </ThemedView>
         </ThemedView>
-      </ThemedView>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -112,8 +118,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     padding: 16,
+    paddingBottom: 40,
     gap: 24,
   },
   title: {

@@ -3,6 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Email, useEmail } from '@/contexts/EmailContext';
 import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
+import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ interface EmailListProps {
 export const EmailList = ({ onViewEmail }: EmailListProps) => {
   const { emails, isLoading, refetch, error } = useEmail();
   const { reloadInterval } = useReloadInterval();
+  const { activeTheme, themeVersion } = useThemePreference();
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [timeUntilRefresh, setTimeUntilRefresh] = useState(reloadInterval);
   const backgroundColor = useThemeColor({}, 'background');
@@ -24,10 +26,8 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
   const accentColor = useThemeColor({}, 'tint');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Immediately mark as initially loaded to avoid loading state on first render
   useEffect(() => {
     if (!hasInitiallyLoaded) {
-      // Set a small delay to allow the UI to render first
       const timer = setTimeout(() => {
         setHasInitiallyLoaded(true);
       }, 100);
@@ -35,14 +35,12 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
     }
   }, []);
 
-  // When emails load, update the hasInitiallyLoaded flag
   useEffect(() => {
     if (!isLoading && !hasInitiallyLoaded) {
       setHasInitiallyLoaded(true);
     }
   }, [isLoading, hasInitiallyLoaded]);
 
-  // Countdown timer for next refresh
   useEffect(() => {
     if (isLoading) {
       setTimeUntilRefresh(reloadInterval);
@@ -62,7 +60,6 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
     return () => clearInterval(interval);
   }, [isLoading, reloadInterval]);
 
-  // Filter and sort emails
   const processedEmails = useMemo(() => {
     const validEmails = (emails || []).filter(e => e && e.id);
     
@@ -108,10 +105,8 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
 
   const handleEmailPress = (email: Email) => {
     if (onViewEmail) {
-      // Use the callback if provided (for backward compatibility)
       onViewEmail(email);
     } else {
-      // Navigate to the email details screen with correct path
       router.push({
         pathname: '/email',
         params: { id: email.id }
@@ -253,13 +248,14 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
   );
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={{ flex: 1 }} key={`email-list-${themeVersion}`}>
+      {renderListHeader()}
       <FlashList
         data={processedEmails}
         renderItem={renderEmailItem}
         estimatedItemSize={100}
-        keyExtractor={(item: Email, idx) => item.id?.toString() ?? `email-${idx}`}
-        ListHeaderComponent={renderListHeader}
+        keyExtractor={(item) => item.id?.toString()}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyList}
         refreshControl={
           <RefreshControl
@@ -267,27 +263,24 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
             onRefresh={refetch}
             colors={[accentColor]}
             tintColor={accentColor}
-            title="Pull to refresh"
-            titleColor={textColor}
           />
         }
       />
-    </ThemedView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  listContent: {
+    paddingBottom: 40,
   },
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   refreshInfoContainer: {
     flexDirection: 'row',
@@ -296,46 +289,43 @@ const styles = StyleSheet.create({
   },
   refreshInfoText: {
     fontSize: 12,
-    opacity: 0.6,
+    opacity: 0.7,
   },
   sortButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(150, 150, 150, 0.2)',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
   },
   sortText: {
-    fontSize: 13,
-    marginRight: 8,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
   sortLoader: {
-    marginLeft: 2,
+    width: 16,
+    height: 16,
   },
   emailItem: {
     flexDirection: 'row',
     padding: 16,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    alignItems: 'flex-start',
+    gap: 12,
   },
   senderCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#6366f1', // Will be overridden dynamically
+    backgroundColor: '#6366f1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
   senderInitial: {
-    color: 'white',
     fontSize: 18,
     fontWeight: '600',
+    color: 'white',
   },
   emailContent: {
     flex: 1,
@@ -343,18 +333,17 @@ const styles = StyleSheet.create({
   emailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 4,
   },
   sender: {
     fontSize: 15,
     fontWeight: '600',
     flex: 1,
-    marginRight: 12,
+    marginRight: 8,
   },
   date: {
     fontSize: 12,
-    opacity: 0.6,
+    opacity: 0.5,
   },
   subject: {
     fontSize: 14,
@@ -364,13 +353,12 @@ const styles = StyleSheet.create({
   preview: {
     fontSize: 13,
     opacity: 0.7,
-    lineHeight: 18,
+    marginBottom: 4,
   },
   attachmentContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
   },
   attachmentText: {
     fontSize: 12,
@@ -378,40 +366,36 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
-    minHeight: 300,
-    gap: 16,
+    alignItems: 'center',
+    padding: 20,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '500',
-    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '600',
+    marginVertical: 12,
   },
   emptySubtext: {
     fontSize: 14,
     opacity: 0.7,
     textAlign: 'center',
-    maxWidth: 280,
-  },
-  pullToRefreshText: {
-    fontSize: 13,
-    opacity: 0.5,
-    marginTop: 20,
+    marginBottom: 24,
   },
   retryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 20,
-    marginTop: 20,
-    gap: 8,
+    borderRadius: 8,
   },
   retryButtonText: {
     color: 'white',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  pullToRefreshText: {
+    fontSize: 12,
+    opacity: 0.5,
+    marginTop: 8,
   },
 }); 

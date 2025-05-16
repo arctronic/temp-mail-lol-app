@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useEmail } from '../../contexts/EmailContext';
+import { useThemePreference } from '../../contexts/ThemeContext';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemedText } from '../ThemedText';
 import { IconSymbol } from './IconSymbol';
@@ -70,6 +71,7 @@ interface AppDrawerProps {
 export const AppDrawer = ({ onClose }: AppDrawerProps) => {
   const router = useRouter();
   const { generatedEmail } = useEmail();
+  const { themeVersion } = useThemePreference();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
@@ -147,7 +149,7 @@ export const AppDrawer = ({ onClose }: AppDrawerProps) => {
   };
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.overlay} key={`drawer-${themeVersion}`}>
       {/* Backdrop blur and opacity */}
       <Animated.View 
         style={[
@@ -183,7 +185,7 @@ export const AppDrawer = ({ onClose }: AppDrawerProps) => {
               <ThemedText style={styles.avatarText}>{getInitial()}</ThemedText>
             </View>
             <View style={styles.headerTextContainer}>
-              <ThemedText style={styles.title}>Temp Mail</ThemedText>
+              <ThemedText style={styles.title}>Temp-Mail.Lol</ThemedText>
               {generatedEmail && (
                 <ThemedText style={styles.email} numberOfLines={1}>
                   {generatedEmail}
@@ -263,12 +265,15 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
+    paddingTop: 0,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
+    padding: 16,
+    paddingTop: 40,
+    paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   headerContent: {
@@ -277,15 +282,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     color: 'white',
   },
@@ -293,26 +298,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     marginBottom: 4,
   },
   email: {
-    fontSize: 12,
-    opacity: 0.6,
+    fontSize: 13,
+    opacity: 0.7,
   },
   closeButton: {
     padding: 10,
     borderRadius: 20,
+    marginRight: -6,
   },
   content: {
     flex: 1,
   },
   section: {
-    paddingVertical: 8,
+    paddingVertical: 0,
   },
   item: {
-    padding: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -320,10 +327,10 @@ const styles = StyleSheet.create({
   itemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   itemLabel: {
-    fontSize: 16,
+    fontSize: 15,
     flex: 1,
   },
   badge: {

@@ -116,15 +116,26 @@ export default function LookupScreen() {
             <View style={styles.emailActions}>
               <Pressable 
                 style={styles.actionButton}
-                onPress={() => handleRemoveEmail(email.address)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleRemoveEmail(email.address);
+                }}
               >
                 <IconSymbol name="trash" size={18} color="#ff4747" />
               </Pressable>
-              <IconSymbol 
-                name={expandedEmail === email.address ? "chevron.up" : "chevron.down"} 
-                size={18} 
-                color={textColor}
-              />
+              <Pressable
+                style={styles.actionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  toggleExpand(email.address);
+                }}
+              >
+                <IconSymbol 
+                  name={expandedEmail === email.address ? "chevron.up" : "chevron.down"} 
+                  size={18} 
+                  color={textColor}
+                />
+              </Pressable>
             </View>
           </Pressable>
           
@@ -334,8 +345,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 10,
+    marginHorizontal: 4,
+    borderRadius: 8,
   },
   messagesList: {
     borderTopWidth: 1,

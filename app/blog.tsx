@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { AppHeader } from '@/components/ui/AppHeader';
+import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -30,23 +32,27 @@ const blogPosts: BlogPost[] = [
 
 export default function BlogScreen() {
   const borderColor = useThemeColor({}, 'border');
+  const { themeVersion } = useThemePreference();
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={[styles.content, { borderColor }]}>  
-        <ThemedText style={styles.title}>Blog</ThemedText>
-        <ThemedText style={styles.subtitle}>Latest news and updates from Temp Mail</ThemedText>
-        <View style={styles.postList}>
-          {blogPosts.map((post, idx) => (
-            <ThemedView key={idx} style={[styles.postCard, { borderColor }]}>  
-              <ThemedText style={styles.postTitle}>{post.title}</ThemedText>
-              <ThemedText style={styles.postDate}>{new Date(post.date).toLocaleDateString()}</ThemedText>
-              <ThemedText style={styles.postSummary}>{post.summary}</ThemedText>
-            </ThemedView>
-          ))}
-        </View>
-      </ThemedView>
-    </ScrollView>
+    <View style={styles.container} key={`blog-screen-${themeVersion}`}>
+      <AppHeader title="Blog" />
+      <ScrollView style={styles.scrollView}>
+        <ThemedView style={[styles.content, { borderColor }]}>  
+          <ThemedText style={styles.title}>Blog</ThemedText>
+          <ThemedText style={styles.subtitle}>Latest news and updates from Temp Mail</ThemedText>
+          <View style={styles.postList}>
+            {blogPosts.map((post, idx) => (
+              <ThemedView key={idx} style={[styles.postCard, { borderColor }]}>  
+                <ThemedText style={styles.postTitle}>{post.title}</ThemedText>
+                <ThemedText style={styles.postDate}>{new Date(post.date).toLocaleDateString()}</ThemedText>
+                <ThemedText style={styles.postSummary}>{post.summary}</ThemedText>
+              </ThemedView>
+            ))}
+          </View>
+        </ThemedView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -54,8 +60,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     padding: 16,
+    paddingBottom: 40,
     gap: 24,
   },
   title: {

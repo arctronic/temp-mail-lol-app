@@ -1,19 +1,35 @@
-import { Link, Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
+import { IconSymbol } from '../components/ui/IconSymbol';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 export default function NotFoundScreen() {
+  const tintColor = useThemeColor({}, 'tint');
+  
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: 'Page Not Found' }} />
       <ThemedView style={styles.container}>
-        <ThemedText style={styles.title}>This screen does not exist.</ThemedText>
-        <Link href="/(drawer)" style={styles.link}>
-          <ThemedText style={styles.linkText}>Go to home screen!</ThemedText>
-        </Link>
+        <IconSymbol name="exclamationmark.triangle.fill" size={64} color={tintColor} style={styles.icon} />
+        <ThemedText style={styles.title}>This page doesn&apos;t exist</ThemedText>
+        <ThemedText style={styles.subtitle}>The page you&apos;re looking for is not available.</ThemedText>
+        <Pressable 
+          style={({ pressed }) => [
+            styles.button,
+            { 
+              backgroundColor: tintColor,
+              opacity: pressed ? 0.8 : 1 
+            }
+          ]}
+          onPress={() => router.replace('/(drawer)')}
+        >
+          <IconSymbol name="house.fill" size={20} color="#fff" />
+          <ThemedText style={styles.buttonText}>Go to Home</ThemedText>
+        </Pressable>
       </ThemedView>
     </>
   );
@@ -26,17 +42,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  icon: {
     marginBottom: 20,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  linkText: {
-    color: '#2e78b7',
+  subtitle: {
     fontSize: 16,
+    marginBottom: 30,
+    textAlign: 'center',
+    opacity: 0.7,
+  },
+  button: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    gap: 8,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

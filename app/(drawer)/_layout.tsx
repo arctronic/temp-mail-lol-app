@@ -1,6 +1,7 @@
 import { Drawer } from 'expo-router/drawer';
 import React, { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppDrawer } from '../../components/ui/AppDrawer';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { useThemePreference } from '../../contexts/ThemeContext';
@@ -8,6 +9,7 @@ import { useThemeColor } from '../../hooks/useThemeColor';
 
 export default function DrawerLayout() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const insets = useSafeAreaInsets();
   const { activeTheme } = useThemePreference();
   const textColor = useThemeColor({}, 'text');
   const backgroundColor = useThemeColor({}, 'background');
@@ -57,7 +59,8 @@ export default function DrawerLayout() {
             backgroundColor: backgroundColor,
             borderBottomWidth: 1,
             borderBottomColor: borderColor,
-            height: 60,  // Increase header height
+            height: 60 + insets.top,  // Increase header height accounting for safe area
+            paddingTop: insets.top,   // Add padding for safe area
           },
           headerTintColor: textColor,
           headerShadowVisible: false,
@@ -72,15 +75,27 @@ export default function DrawerLayout() {
             <Pressable
               style={({ pressed }) => [
                 styles.menuButton,
-                { opacity: pressed ? 0.7 : 1 }
+                { 
+                  opacity: pressed ? 0.7 : 1,
+                  backgroundColor: pressed ? `${tintColor}10` : 'transparent'
+                }
               ]}
               onPress={toggleDrawer}
             >
               <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                <IconSymbol name="line.3.horizontal" size={24} color={tintColor} />
+                <IconSymbol 
+                  name="line.3.horizontal" 
+                  size={28} 
+                  color={tintColor} 
+                  style={styles.menuIcon} 
+                />
               </Animated.View>
             </Pressable>
           ),
+          headerTitleStyle: {
+            fontWeight: '600',
+            fontSize: 18,
+          },
         }}
         drawerContent={() => null} // Hide the default drawer content
       >
@@ -88,9 +103,12 @@ export default function DrawerLayout() {
           name="index"
           options={{
             title: "Temp-Mail.Lol",
-            headerTitleStyle: {
-              fontWeight: '600',
-            }
+          }}
+        />
+        <Drawer.Screen
+          name="lookup"
+          options={{
+            title: "My Lookup List",
           }}
         />
       </Drawer>
@@ -105,8 +123,15 @@ export default function DrawerLayout() {
 
 const styles = StyleSheet.create({
   menuButton: {
-    padding: 12,
-    marginLeft: 10,
+    padding: 10,
+    marginLeft: 8,
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 44,
+    height: 44,
   },
+  menuIcon: {
+    marginLeft: 1, // Fine adjustment for icon alignment
+  }
 }); 

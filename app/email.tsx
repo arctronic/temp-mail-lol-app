@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
+import { AppHeader } from '../components/ui/AppHeader';
 import { IconSymbol } from '../components/ui/IconSymbol';
 import { Email, useEmail } from '../contexts/EmailContext';
 import { useLookup } from '../contexts/LookupContext';
@@ -134,50 +135,14 @@ ${displayEmail.message}
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.toolbar, { borderBottomColor: borderColor }]}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.backButton,
-            { 
-              opacity: pressed ? 0.7 : 1,
-              backgroundColor: pressed ? `${accentColor}20` : 'transparent'
-            }
-          ]}
-          onPress={goBack}
-        >
-          <IconSymbol name="chevron.left" size={28} color={accentColor} />
-        </Pressable>
-        
-        <View style={styles.toolbarActions}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.toolbarButton,
-              { opacity: pressed ? 0.7 : 1 }
-            ]}
-            onPress={refetch}
-          >
-            <IconSymbol name="arrow.clockwise" size={20} color={textColor} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.toolbarButton,
-              { opacity: pressed ? 0.7 : 1 }
-            ]}
-            onPress={handleDelete}
-          >
-            <IconSymbol name="trash" size={20} color={textColor} />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [
-              styles.toolbarButton,
-              { opacity: pressed ? 0.7 : 1 }
-            ]}
-            onPress={handleShare}
-          >
-            <IconSymbol name="square.and.arrow.up" size={20} color={textColor} />
-          </Pressable>
-        </View>
-      </View>
+      <AppHeader 
+        title={displayEmail.subject || '(No subject)'} 
+        showBackButton={true}
+        rightAction={{
+          icon: "square.and.arrow.up",
+          onPress: handleShare
+        }}
+      />
 
       <ScrollView 
         style={styles.content}
@@ -198,53 +163,68 @@ ${displayEmail.message}
           <View style={styles.senderInfo}>
             <View style={styles.senderNameRow}>
               <ThemedText style={styles.senderName}>{senderName}</ThemedText>
-              <ThemedText style={styles.dateText}>{date.toLocaleDateString()}</ThemedText>
-            </View>
-            
-            <View style={styles.emailDetailsRow}>
-              <ThemedText style={styles.recipientText}>
-                to me
-              </ThemedText>
               <Pressable
                 style={({ pressed }) => [
-                  styles.detailsButton,
+                  styles.actionButton,
                   { opacity: pressed ? 0.7 : 1 }
                 ]}
-                onPress={() => setShowDetails(!showDetails)}
+                onPress={handleDelete}
               >
-                <IconSymbol 
-                  name={showDetails ? "arrow.up" : "arrow.down"} 
-                  size={16} 
-                  color={textColor} 
-                />
+                <IconSymbol name="trash" size={18} color={textColor} />
               </Pressable>
             </View>
+            <ThemedText style={styles.senderEmail} numberOfLines={1}>{senderEmail}</ThemedText>
+            <ThemedText style={styles.date}>{formattedDate}</ThemedText>
           </View>
         </View>
-
+        
+        {/* Details button */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.detailsButton,
+            { 
+              borderColor,
+              opacity: pressed ? 0.7 : 1,
+              backgroundColor: pressed ? `${accentColor}10` : 'transparent',
+            }
+          ]}
+          onPress={() => setShowDetails(!showDetails)}
+        >
+          <ThemedText style={styles.detailsText}>
+            {showDetails ? 'Hide Details' : 'Show Details'}
+          </ThemedText>
+          <IconSymbol 
+            name={showDetails ? 'chevron.up' : 'chevron.down'} 
+            size={16} 
+            color={textColor} 
+          />
+        </Pressable>
+        
+        {/* Additional details when expanded */}
         {showDetails && (
-          <ThemedView style={[styles.detailsContainer, { borderColor }]}>
+          <View style={[styles.details, { borderColor }]}>
             <View style={styles.detailRow}>
               <ThemedText style={styles.detailLabel}>From:</ThemedText>
-              <ThemedText style={styles.detailValue}>{senderEmail}</ThemedText>
+              <ThemedText style={styles.detailValue} numberOfLines={1}>{displayEmail.sender}</ThemedText>
             </View>
             <View style={styles.detailRow}>
               <ThemedText style={styles.detailLabel}>To:</ThemedText>
-              <ThemedText style={styles.detailValue}>{displayEmail.receiver}</ThemedText>
+              <ThemedText style={styles.detailValue} numberOfLines={1}>{displayEmail.receiver}</ThemedText>
             </View>
             <View style={styles.detailRow}>
               <ThemedText style={styles.detailLabel}>Date:</ThemedText>
               <ThemedText style={styles.detailValue}>{formattedDate}</ThemedText>
             </View>
-          </ThemedView>
+          </View>
         )}
-
-        <View style={styles.messageContainer}>
-          {displayEmail.attachments && displayEmail.attachments.length > 0 && (
-            <EmailAttachments attachments={displayEmail.attachments} />
-          )}
-          <EmailContent message={displayEmail.message} />
-        </View>
+        
+        {/* Email content */}
+        <EmailContent htmlContent={displayEmail.message} />
+        
+        {/* Email attachments */}
+        {displayEmail.attachments && displayEmail.attachments.length > 0 && (
+          <EmailAttachments attachments={displayEmail.attachments} />
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -254,70 +234,57 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-  },
-  backButton: {
-    padding: 10,
-    borderRadius: 8,
-  },
-  toolbarButton: {
-    padding: 10,
-    marginLeft: 4,
-  },
-  toolbarActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   content: {
     flex: 1,
   },
   contentContainer: {
-    padding: 20,
-    paddingTop: 16,
-    gap: 20,
-    paddingBottom: 30,
+    padding: 16,
+    paddingBottom: 60,
+  },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 60,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 8,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  toolbarActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  toolbarButton: {
+    padding: 8,
+    borderRadius: 8,
   },
   subjectContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   subjectIcon: {
     marginRight: 10,
-    opacity: 0.7,
   },
   subject: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: 'bold',
     flex: 1,
   },
   senderContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
+    marginBottom: 20,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   avatarText: {
     fontSize: 18,
@@ -336,44 +303,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  dateText: {
+  senderEmail: {
     fontSize: 14,
     opacity: 0.7,
+    marginTop: 2,
   },
-  emailDetailsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
+  date: {
+    fontSize: 12,
+    opacity: 0.5,
+    marginTop: 4,
   },
-  recipientText: {
-    fontSize: 14,
-    opacity: 0.7,
+  actionButton: {
+    padding: 6,
+    borderRadius: 20,
   },
   detailsButton: {
-    padding: 6,
-    marginLeft: 6,
-  },
-  detailsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 16,
-    marginTop: 12,
-    gap: 10,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  detailsText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  details: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
   },
   detailRow: {
     flexDirection: 'row',
-    gap: 12,
+    marginBottom: 8,
   },
   detailLabel: {
+    width: 50,
     fontSize: 14,
-    opacity: 0.7,
-    width: 54,
+    fontWeight: '500',
   },
   detailValue: {
-    fontSize: 14,
     flex: 1,
-  },
-  messageContainer: {
-    gap: 20,
+    fontSize: 14,
   },
 }); 

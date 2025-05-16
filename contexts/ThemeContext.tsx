@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import { AppState, AppStateStatus, useColorScheme } from 'react-native';
 
 type ThemePreference = 'light' | 'dark' | 'system';
 
@@ -8,6 +8,7 @@ interface ThemeContextProps {
   themePreference: ThemePreference;
   setThemePreference: (preference: ThemePreference) => Promise<void>;
   activeTheme: 'light' | 'dark';
+  themeVersion: number; // Add version number to trigger rerenders
 }
 
 const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
@@ -15,7 +16,33 @@ const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useColorScheme() || 'light';
   const [themePreference, setThemePreference] = useState<ThemePreference>('system');
+  const [themeVersion, setThemeVersion] = useState(0); // Version to force rerenders
   const [isLoading, setIsLoading] = useState(true);
+
+  // Compute active theme based on preference and system
+  const activeTheme = themePreference === 'system' 
+    ? systemColorScheme 
+    : themePreference;
+
+  // Detect app state changes to update theme
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        // Force theme refresh when app becomes active
+        setThemeVersion(prev => prev + 1);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Watch for system color scheme changes
+  useEffect(() => {
+    // Force theme refresh when system theme changes
+    setThemeVersion(prev => prev + 1);
+  }, [systemColorScheme]);
 
   // Initial load of saved theme
   useEffect(() => {
@@ -40,15 +67,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem('themePreference', preference);
       setThemePreference(preference);
+      // Increment version to force rerenders
+      setThemeVersion(prev => prev + 1);
     } catch (error) {
       console.error('Failed to save theme preference:', error);
     }
   };
-
-  // Determine active theme based on preference
-  const activeTheme = themePreference === 'system' 
-    ? systemColorScheme 
-    : themePreference;
   
   // Don't render until initial theme is loaded
   if (isLoading) {
@@ -61,6 +85,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         themePreference, 
         setThemePreference: changeThemePreference,
         activeTheme,
+        themeVersion,
       }}
     >
       {children}

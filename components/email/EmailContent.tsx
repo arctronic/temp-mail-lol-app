@@ -6,7 +6,7 @@ import { ActivityIndicator, Dimensions, Linking, StyleSheet, View } from 'react-
 import { WebView } from 'react-native-webview';
 
 interface EmailContentProps {
-  message: string;
+  htmlContent: string;
 }
 
 // Detect content type (HTML, plain text, or potentially markdown)
@@ -46,8 +46,8 @@ const convertTextToHtml = (text: string, linkColor: string): string => {
     .replace(/\n/g, '<br />'); // Convert single line breaks to <br />
 };
 
-export const EmailContent = ({ message }: EmailContentProps) => {
-  const [htmlContent, setHtmlContent] = useState<string>('');
+export const EmailContent = ({ htmlContent }: EmailContentProps) => {
+  const [processedHtml, setProcessedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [contentHeight, setContentHeight] = useState(300);
   
@@ -59,22 +59,22 @@ export const EmailContent = ({ message }: EmailContentProps) => {
 
   useEffect(() => {
     const processEmail = () => {
-      if (!message) {
-        setHtmlContent('');
+      if (!htmlContent) {
+        setProcessedHtml('');
         setLoading(false);
         return;
       }
       
-      const contentType = detectContentType(message);
+      const contentType = detectContentType(htmlContent);
       let emailContent: string;
       
       try {
         if (contentType === 'html') {
           // For HTML content, wrap it in a div
-          emailContent = `<div>${message}</div>`;
+          emailContent = `<div>${htmlContent}</div>`;
         } else {
           // For plain text, convert to HTML with proper formatting
-          const convertedText = convertTextToHtml(message, tintColor);
+          const convertedText = convertTextToHtml(htmlContent, tintColor);
           emailContent = `<div style="color: ${textColor}; font-family: sans-serif; font-size: 16px; line-height: 1.5;"><p>${convertedText}</p></div>`;
         }
         
@@ -138,7 +138,7 @@ export const EmailContent = ({ message }: EmailContentProps) => {
           </html>
         `;
         
-        setHtmlContent(styledHtml);
+        setProcessedHtml(styledHtml);
       } catch (error) {
         console.error('Error rendering email:', error);
         // Fallback to basic rendering if parsing fails
@@ -163,18 +163,18 @@ export const EmailContent = ({ message }: EmailContentProps) => {
               </style>
             </head>
             <body>
-              <pre>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+              <pre>${htmlContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
             </body>
           </html>
         `;
-        setHtmlContent(simpleHtml);
+        setProcessedHtml(simpleHtml);
       } finally {
         setLoading(false);
       }
     };
     
     processEmail();
-  }, [message, textColor, backgroundColor, tintColor, borderColor, width]);
+  }, [htmlContent, textColor, backgroundColor, tintColor, borderColor, width]);
 
   // Handle WebView height adjustment based on content
   const onWebViewMessage = (event: any) => {
@@ -233,11 +233,11 @@ export const EmailContent = ({ message }: EmailContentProps) => {
           <ActivityIndicator color={tintColor} size="small" />
           <ThemedText>Loading email content...</ThemedText>
         </View>
-      ) : message ? (
+      ) : htmlContent ? (
         <WebView
           style={[styles.webView, { height: contentHeight }]}
           originWhitelist={['*']}
-          source={{ html: htmlContent }}
+          source={{ html: processedHtml }}
           scrollEnabled={true}
           onMessage={handleWebViewMessage}
           injectedJavaScript={injectedJavaScript}
