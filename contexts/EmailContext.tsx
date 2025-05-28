@@ -26,6 +26,7 @@ export interface Email {
   }[];
   created_at: MongoDate;
   updated_at: MongoDate;
+  read?: boolean; // Track read/unread status locally
 }
 
 interface EmailContextType {

@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tronics.tempmail"
+      "bundleIdentifier": "com.tronics.tempmail",
+      "notification": {
+        "icon": "./assets/images/temp-mail-icon-removebg.png"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +28,11 @@
         "READ_EXTERNAL_STORAGE"
       ],
       "versionCode": 1,
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "notification": {
+        "icon": "./assets/images/temp-mail-icon-removebg.png",
+        "color": "#0F5259"
+      }
     },
     "web": {
       "bundler": "metro",

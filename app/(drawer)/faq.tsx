@@ -25,6 +25,30 @@ const faqData: FAQItem[] = [
     answer: "Yes, Temp Mail is completely free to use. No registration or payment required."
   },
   {
+    question: "Do I get notifications for new emails?",
+    answer: "Yes! When you add emails to your lookup list, you'll receive push notifications whenever new messages arrive. The app checks for new emails every 30 seconds automatically."
+  },
+  {
+    question: "How do I enable notifications?",
+    answer: "The app will ask for notification permissions when you first use it. If you denied permissions, you can enable them in your device&apos;s Settings > Notifications > Temp Mail."
+  },
+  {
+    question: "What information do notifications show?",
+    answer: "Notifications show the email address that received new messages and the number of new emails. For example: '2 new messages for user@example.com'."
+  },
+  {
+    question: "Do notifications work in Expo Go?",
+    answer: "Notifications are only available in development and production builds. If you're using Expo Go, notifications will be disabled but all other features work normally."
+  },
+  {
+    question: "How do I track read/unread emails?",
+    answer: "The app automatically tracks which emails you&apos;ve read using local storage. Unread emails are shown with a blue dot and bold text. The lookup list shows unread counts for each email address."
+  },
+  {
+    question: "What is the lookup list?",
+    answer: "The lookup list lets you save up to 5 email addresses to automatically monitor for new messages. The app checks these emails every 30 seconds and sends notifications when new emails arrive."
+  },
+  {
     question: "Can I use Temp Mail for important communications?",
     answer: "No, Temp Mail is designed for temporary use only. Don't use it for important communications as emails are automatically deleted."
   },
@@ -34,7 +58,7 @@ const faqData: FAQItem[] = [
   },
   {
     question: "Can I use custom usernames?",
-    answer: "Currently, email addresses are randomly generated to ensure uniqueness and privacy."
+    answer: "Yes! You can create custom email addresses by typing your desired username in the email field on the home screen. However, make sure to use unique, hard-to-guess usernames to prevent others from accessing your emails. Avoid common words or personal information."
   },
   {
     question: "What about attachments?",

@@ -1,18 +1,19 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { useNotificationSettings } from '@/contexts/NotificationContext';
 import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch } from 'react-native';
 
 type ThemeOption = 'system' | 'light' | 'dark';
 
 // Define the icon names
-type ThemeIconName = 'gear' | 'sun.max.fill' | 'moon.fill' | 'checkmark.circle.fill';
+type ThemeIconName = 'gear' | 'sun.max.fill' | 'moon.fill' | 'checkmark.circle.fill' | 'bell.fill' | 'bell.slash.fill';
 
 interface ThemeButtonProps {
   label: string;
@@ -87,6 +88,7 @@ function formatSeconds(seconds: number): string {
 export default function SettingsScreen() {
   const { themePreference, setThemePreference, themeVersion } = useThemePreference();
   const { reloadInterval, setReloadInterval } = useReloadInterval();
+  const { notificationsEnabled, setNotificationsEnabled } = useNotificationSettings();
   const [tempInterval, setTempInterval] = useState(reloadInterval);
   const textColor = useThemeColor({}, 'text');
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
@@ -169,6 +171,41 @@ export default function SettingsScreen() {
                   5m
                 </ThemedText>
               </ThemedView>
+            </ThemedView>
+          </ThemedView>
+
+          <ThemedView style={[styles.section, { borderBottomColor: borderColor }]}>
+            <ThemedText style={styles.sectionTitle}>Notifications</ThemedText>
+            <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
+              Control whether you receive push notifications when new emails arrive in your lookup list.
+            </ThemedText>
+
+            <ThemedView style={styles.notificationToggle}>
+              <ThemedView style={styles.notificationInfo}>
+                <IconSymbol 
+                  name={notificationsEnabled ? "bell.fill" : "bell.slash.fill"} 
+                  size={24} 
+                  color={notificationsEnabled ? tintColor : textSecondaryColor} 
+                />
+                <ThemedView style={styles.notificationText}>
+                  <ThemedText style={styles.notificationLabel}>
+                    Push Notifications
+                  </ThemedText>
+                  <ThemedText style={[styles.notificationStatus, { color: textSecondaryColor }]}>
+                    {notificationsEnabled ? 'Enabled' : 'Disabled'}
+                  </ThemedText>
+                </ThemedView>
+              </ThemedView>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={async (value) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  await setNotificationsEnabled(value);
+                }}
+                trackColor={{ false: borderColor, true: `${tintColor}40` }}
+                thumbColor={notificationsEnabled ? tintColor : textSecondaryColor}
+                ios_backgroundColor={borderColor}
+              />
             </ThemedView>
           </ThemedView>
 
@@ -276,5 +313,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  notificationToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notificationInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  notificationText: {
+    flexDirection: 'column',
+  },
+  notificationLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  notificationStatus: {
+    fontSize: 14,
   },
 }); 

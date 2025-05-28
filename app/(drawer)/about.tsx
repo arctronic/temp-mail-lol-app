@@ -23,7 +23,7 @@ export default function AboutScreen() {
           <ThemedView style={styles.header}>
             <IconSymbol name="envelope.fill" size={64} color={tintColor} />
             <ThemedText style={styles.title}>About Temp Mail</ThemedText>
-            <ThemedText style={styles.version}>Version 1.0.0</ThemedText>
+            <ThemedText style={styles.version}>Version 2.0.0</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.section}>
@@ -37,8 +37,9 @@ export default function AboutScreen() {
           <ThemedView style={styles.section}>
             <ThemedText style={styles.sectionTitle}>How It Works</ThemedText>
             <ThemedText style={styles.text}>
-              Generate a temporary email address instantly. Use it for sign-ups, verifications, or any situation 
-              where you need an email but want to protect your privacy. All emails are automatically deleted after 24 hours.
+              Generate temporary email addresses instantly or create custom ones. Use them for sign-ups, verifications, 
+              or any situation where you need an email but want to protect your privacy. Save up to 5 emails in your 
+              lookup list for automatic monitoring. All emails are automatically deleted after 24 hours.
             </ThemedText>
           </ThemedView>
 
@@ -48,6 +49,30 @@ export default function AboutScreen() {
               <ThemedView style={styles.feature}>
                 <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
                 <ThemedText style={styles.featureText}>Instant email generation</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Custom email addresses</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Lookup list (save up to 5 emails)</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Push notifications for new emails</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Read/unread email tracking</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Automatic email checking (every 30 seconds)</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Dark and light theme support</ThemedText>
               </ThemedView>
               <ThemedView style={styles.feature}>
                 <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
@@ -63,9 +88,26 @@ export default function AboutScreen() {
               </ThemedView>
               <ThemedView style={styles.feature}>
                 <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
-                <ThemedText style={styles.featureText}>Mobile and web access</ThemedText>
+                <ThemedText style={styles.featureText}>Cross-platform (iOS, Android, Web)</ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.feature}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color={tintColor} />
+                <ThemedText style={styles.featureText}>Local storage for offline access</ThemedText>
               </ThemedView>
             </ThemedView>
+          </ThemedView>
+
+          <ThemedView style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Privacy & Security</ThemedText>
+            <ThemedText style={styles.text}>
+              We DO NOT store any data on our servers. All emails are automatically deleted every 24 hours from our systems. 
+              Your privacy is completely protected - we don&apos;t collect personal information, track your usage, or keep any records.
+            </ThemedText>
+            <ThemedText style={[styles.text, { marginTop: 12 }]}>
+              The ONLY way to keep emails is by adding them to your lookup list, which stores them locally on your device only. 
+              This local storage is completely private and under your control. Even then, the original emails are still deleted 
+              from our servers after 24 hours - only your local copies remain.
+            </ThemedText>
           </ThemedView>
 
           <ThemedView style={[styles.footer, { borderTopColor: borderColor }]}>
@@ -73,7 +115,7 @@ export default function AboutScreen() {
               Built with privacy in mind. No personal data collected.
             </ThemedText>
             <ThemedText style={styles.copyright}>
-              © 2023 Temp Mail Services. All rights reserved.
+              © 2024 Temp Mail Services. All rights reserved.
             </ThemedText>
           </ThemedView>
         </ThemedView>

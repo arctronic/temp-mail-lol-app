@@ -1,12 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { AppState, Platform, StyleSheet } from 'react-native';
 import { GlobalLayout } from '../components/ui/GlobalLayout';
 import { EmailProvider } from '../contexts/EmailContext';
 import { LookupProvider } from '../contexts/LookupContext';
+import { NotificationProvider } from '../contexts/NotificationContext';
 import { ReloadIntervalProvider } from '../contexts/ReloadIntervalContext';
 import { ThemeProvider, useThemePreference } from '../contexts/ThemeContext';
+
+// Optional notifications import
+let Notifications: any = null;
+try {
+  Notifications = require('expo-notifications');
+} catch (error) {
+  console.log('expo-notifications not available');
+}
 
 // Create a client with optimized settings for better UX
 const queryClient = new QueryClient({
@@ -26,6 +35,36 @@ const queryClient = new QueryClient({
 // Create a wrapper component that can access the theme context
 function AppWithTheme() {
   const { activeTheme } = useThemePreference();
+  const router = useRouter();
+  
+  // Handle notification responses (when user taps notification)
+  useEffect(() => {
+    if (!Notifications) return;
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response: any) => {
+      const data = response.notification.request.content.data;
+      
+      if (data?.action === 'openEmail' && data?.latestMessage) {
+        const message = data.latestMessage;
+        
+        // Navigate to the email detail screen
+        router.push({
+          pathname: '/email',
+          params: {
+            id: message.id,
+            from: message.from,
+            to: message.to,
+            subject: message.subject,
+            date: message.date,
+            fromLookup: 'true',
+            autoMarkRead: 'true' // Flag to automatically mark as read
+          }
+        });
+      }
+    });
+
+    return () => subscription.remove();
+  }, [router]);
   
   // Force theme update when app returns from background
   useEffect(() => {
@@ -81,11 +120,13 @@ export default function RootLayout() {
       <ThemeProvider>
         <ReloadIntervalProvider>
           <EmailProvider>
-            <LookupProvider>
-              <GlobalLayout>
-                <AppWithTheme />
-              </GlobalLayout>
-            </LookupProvider>
+            <NotificationProvider>
+              <LookupProvider>
+                <GlobalLayout>
+                  <AppWithTheme />
+                </GlobalLayout>
+              </LookupProvider>
+            </NotificationProvider>
           </EmailProvider>
         </ReloadIntervalProvider>
       </ThemeProvider>

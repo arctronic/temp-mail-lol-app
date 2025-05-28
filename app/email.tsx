@@ -16,8 +16,9 @@ import { EmailContent } from '../components/email/EmailContent';
 
 export default function EmailDetailScreen() {
   const params = useLocalSearchParams();
-  const { id, fromLookup } = params;
+  const { id, fromLookup, autoMarkRead } = params;
   const isFromLookup = fromLookup === 'true';
+  const shouldAutoMarkRead = autoMarkRead === 'true';
   
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -26,10 +27,7 @@ export default function EmailDetailScreen() {
   const [showDetails, setShowDetails] = useState(false);
   
   const { emails, refetch } = useEmail();
-  const { lookupEmails } = useLookup();
-  
-  // Disable initial render loading state entirely
-  const [isInitialRender, setIsInitialRender] = useState(false);
+  const { lookupEmails, markEmailAsRead } = useLookup();
   
   // Find the email either in regular emails or lookup emails
   let email: Email | undefined;
@@ -66,12 +64,13 @@ export default function EmailDetailScreen() {
   // Use real email if available, otherwise use dummy
   const displayEmail = email || dummyEmail;
   
-  // Hide header for this screen
+  // Auto-mark as read if opened from notification
   useEffect(() => {
-    // This is just a placeholder for any navigation config
-    return () => {};
-  }, []);
-
+    if (shouldAutoMarkRead && isFromLookup && email && params.to) {
+      markEmailAsRead(params.to.toString(), email.id);
+    }
+  }, [shouldAutoMarkRead, isFromLookup, email?.id, params.to, markEmailAsRead]);
+  
   const date = new Date(params.date?.toString() || displayEmail.date.$date);
   const formattedDate = date.toLocaleDateString(undefined, {
     weekday: 'long',

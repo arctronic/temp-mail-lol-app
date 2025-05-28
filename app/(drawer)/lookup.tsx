@@ -11,7 +11,16 @@ import { useLookup } from '../../contexts/LookupContext';
 import { useThemeColor } from '../../hooks/useThemeColor';
 
 export default function LookupScreen() {
-  const { lookupEmails, addEmailToLookup, removeEmailFromLookup, refreshLookupEmails, isLoading } = useLookup();
+  const { 
+    lookupEmails, 
+    addEmailToLookup, 
+    removeEmailFromLookup, 
+    refreshLookupEmails, 
+    markEmailAsRead,
+    getUnreadCount,
+    getTotalUnreadCount,
+    isLoading 
+  } = useLookup();
   const { generatedEmail } = useEmail();
   const router = useRouter();
   const [expandedEmail, setExpandedEmail] = useState<string | null>(null);
@@ -63,9 +72,14 @@ export default function LookupScreen() {
     );
   }, [removeEmailFromLookup]);
   
-  const handleViewMessage = useCallback((email: Email) => {
+  const handleViewMessage = useCallback(async (email: Email) => {
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Mark email as read if it's unread
+    if (!email.read) {
+      await markEmailAsRead(email.receiver, email.id);
+    }
     
     // Navigate to message view with email data
     router.push({
@@ -79,7 +93,7 @@ export default function LookupScreen() {
         fromLookup: 'true'
       }
     });
-  }, [router]);
+  }, [router, markEmailAsRead]);
   
   const toggleExpand = useCallback((address: string) => {
     console.log('Toggling expand for:', address, 'Current expanded:', expandedEmail);
@@ -108,17 +122,22 @@ export default function LookupScreen() {
         const isExpanded = expandedEmail === email.address;
         
         return (
-          <ThemedView key={email.address} style={[styles.emailCard, { borderColor }]}>
+          <ThemedView key={`${email.address}-${email.addedAt}`} style={[styles.emailCard, { borderColor }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.emailHeader,
-                { backgroundColor: pressed ? 'rgba(0,0,0,0.05)' : 'transparent' }
+                { backgroundColor: pressed ? `${textColor}08` : 'transparent' }
               ]}
               onPress={() => toggleExpand(email.address)}
             >
               <ThemedView style={styles.emailMainInfo}>
                 <ThemedText style={styles.emailAddress} numberOfLines={1}>
                   {email.address} ({email.messages.length})
+                  {(email.unreadCount || 0) > 0 && (
+                    <ThemedText style={[styles.unreadIndicator, { color: tintColor }]}>
+                      {' '}• {email.unreadCount} new
+                    </ThemedText>
+                  )}
                 </ThemedText>
                 <ThemedText style={styles.emailMeta}>
                   Added {new Date(email.addedAt).toLocaleDateString()}
@@ -159,21 +178,32 @@ export default function LookupScreen() {
                 ) : (
                   email.messages.map((message: Email, index: number) => (
                     <Pressable
-                      key={message.id || index}
+                      key={`${email.address}-${message.id}-${index}`}
                       style={({ pressed }) => [
                         styles.messageItem,
                         { 
-                          backgroundColor: pressed ? `${tintColor}10` : 'transparent',
+                          backgroundColor: pressed ? `${tintColor}10` : (!message.read ? `${textColor}05` : 'transparent'),
                           borderBottomColor: borderColor 
                         }
                       ]}
                       onPress={() => handleViewMessage(message)}
                     >
                       <ThemedView style={styles.messageInfo}>
-                        <ThemedText style={styles.messageSender} numberOfLines={1}>
-                          {message.sender}
-                        </ThemedText>
-                        <ThemedText style={styles.messageSubject} numberOfLines={2}>
+                        <ThemedView style={styles.messageHeader}>
+                          <ThemedText style={[
+                            styles.messageSender,
+                            !message.read && styles.unreadText
+                          ]} numberOfLines={1}>
+                            {message.sender}
+                          </ThemedText>
+                          {!message.read && (
+                            <ThemedView style={[styles.unreadDot, { backgroundColor: tintColor }]} />
+                          )}
+                        </ThemedView>
+                        <ThemedText style={[
+                          styles.messageSubject,
+                          !message.read && styles.unreadText
+                        ]} numberOfLines={2}>
                           {message.subject || '(No subject)'}
                         </ThemedText>
                         <ThemedText style={styles.messageDate}>
@@ -196,7 +226,16 @@ export default function LookupScreen() {
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedText style={styles.title}>My Lookup List</ThemedText>
+          <ThemedView style={styles.titleWithBadge}>
+            <ThemedText style={styles.title}>My Lookup List</ThemedText>
+            {getTotalUnreadCount() > 0 && (
+              <ThemedView style={[styles.totalUnreadBadge, { backgroundColor: tintColor }]}>
+                <ThemedText style={styles.totalUnreadText}>
+                  {getTotalUnreadCount()}
+                </ThemedText>
+              </ThemedView>
+            )}
+          </ThemedView>
           <ThemedView style={styles.headerActions}>
             {isLoading && (
               <ThemedView style={styles.loadingIndicator}>
@@ -228,7 +267,7 @@ export default function LookupScreen() {
         </ThemedView>
       </ThemedView>
       
-      <ThemedView style={styles.addSection}>
+      <ThemedView style={[styles.addSection, { backgroundColor: `${textColor}03` }]}>
         <ThemedText style={styles.addText}>
           Add current email to lookup list ({lookupEmails.length}/5):
         </ThemedText>
@@ -269,7 +308,7 @@ export default function LookupScreen() {
             renderItem={renderEmailItem}
             estimatedItemSize={150}
             contentContainerStyle={styles.listContent}
-            keyExtractor={(item) => item.domain}
+            keyExtractor={(item, index) => `${item.domain}-${index}-${item.emails.length}`}
             extraData={expandedEmail}
           />
         </ThemedView>
@@ -291,9 +330,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  titleWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  totalUnreadBadge: {
+    marginLeft: 8,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  totalUnreadText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   loadingIndicator: {
     flexDirection: 'row',
@@ -309,7 +366,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   addText: {
     fontSize: 14,
@@ -465,6 +521,10 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 16,
   },
+  messageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   messageSender: {
     fontSize: 15,
     fontWeight: '600',
@@ -480,6 +540,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     opacity: 0.6,
   },
+  unreadMessage: {
+    // Background will be handled by theme-aware styling in the component
+  },
+  unreadText: {
+    fontWeight: 'bold',
+  },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -492,5 +558,16 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  unreadIndicator: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginLeft: 8,
   },
 }); 
