@@ -34,7 +34,7 @@ export const BlogPostStructuredData = ({
       name: "temp-mail.lol",
       logo: {
         "@type": "ImageObject",
-        url: "https://temp-mail.lol/logo.png",
+        url: "https://temp-mail.lol/assets/images/temp-mail-icon-removebg.png",
       },
     },
     datePublished,

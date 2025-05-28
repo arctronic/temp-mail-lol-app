@@ -1,4 +1,3 @@
-import { Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export const Logo = () => {
@@ -18,14 +17,11 @@ export const Logo = () => {
               animate ? "scale-100 opacity-100" : "scale-0 opacity-0"
             }`}
           >
-            <Mail
-              className={`h-10 w-10 text-primary transition-transform duration-500 ${
+            <img
+              src="/assets/images/temp-mail-icon-removebg.png"
+              alt="Temp-Mail.lol Logo"
+              className={`h-10 w-10 transition-transform duration-500 ${
                 animate ? "animate-[bounce_1s_ease-in-out]" : ""
-              }`}
-            />
-            <div
-              className={`absolute -top-1 -right-1 h-3 w-3 bg-blue-500 rounded-full ${
-                animate ? "animate-pulse" : ""
               }`}
             />
           </div>

@@ -112,9 +112,45 @@ export default function DrawerLayout() {
           }}
         />
         <Drawer.Screen
-          name="../settings"
+          name="settings"
           options={{
             title: "Settings",
+          }}
+        />
+        <Drawer.Screen
+          name="blog"
+          options={{
+            title: "Blog",
+          }}
+        />
+        <Drawer.Screen
+          name="about"
+          options={{
+            title: "About",
+          }}
+        />
+        <Drawer.Screen
+          name="faq"
+          options={{
+            title: "FAQ",
+          }}
+        />
+        <Drawer.Screen
+          name="terms"
+          options={{
+            title: "Terms",
+          }}
+        />
+        <Drawer.Screen
+          name="privacy"
+          options={{
+            title: "Privacy",
+          }}
+        />
+        <Drawer.Screen
+          name="contact"
+          options={{
+            title: "Contact",
           }}
         />
       </Drawer>

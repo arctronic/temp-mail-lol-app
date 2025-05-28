@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 20,
     fontWeight: '600',
-    color: 'white',
+    color: '#fff',
   },
   headerTextContainer: {
     flex: 1,

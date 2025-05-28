@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   senderInitial: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'white',
+    color: '#fff',
   },
   emailContent: {
     flex: 1,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   retryButtonText: {
-    color: 'white',
+    color: '#fff',
     fontWeight: '600',
   },
   pullToRefreshText: {

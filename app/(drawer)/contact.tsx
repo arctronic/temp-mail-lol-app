@@ -1,11 +1,9 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
 
 export default function ContactScreen() {
   const [name, setName] = useState('');
@@ -62,22 +60,21 @@ export default function ContactScreen() {
   };
 
   return (
-    <View style={styles.container} key={`contact-screen-${themeVersion}`}>
-      <PageHeader title="Contact Us" showBackButton />
+    <ThemedView style={styles.container} key={`contact-screen-${themeVersion}`}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoidView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           <ThemedView style={styles.content}>
             <ThemedText style={styles.title}>Contact Us</ThemedText>
             <ThemedText style={styles.subtitle}>
               Have a question or feedback? We&apos;d love to hear from you!
             </ThemedText>
 
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
+            <ThemedView style={styles.form}>
+              <ThemedView style={styles.inputGroup}>
                 <ThemedText style={styles.label}>Name</ThemedText>
                 <TextInput
                   style={[
@@ -93,9 +90,9 @@ export default function ContactScreen() {
                   placeholder="Your name"
                   placeholderTextColor={`${textColor}80`}
                 />
-              </View>
+              </ThemedView>
 
-              <View style={styles.inputGroup}>
+              <ThemedView style={styles.inputGroup}>
                 <ThemedText style={styles.label}>Email</ThemedText>
                 <TextInput
                   style={[
@@ -114,9 +111,9 @@ export default function ContactScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-              </View>
+              </ThemedView>
 
-              <View style={styles.inputGroup}>
+              <ThemedView style={styles.inputGroup}>
                 <ThemedText style={styles.label}>Subject</ThemedText>
                 <TextInput
                   style={[
@@ -132,9 +129,9 @@ export default function ContactScreen() {
                   placeholder="Message subject"
                   placeholderTextColor={`${textColor}80`}
                 />
-              </View>
+              </ThemedView>
 
-              <View style={styles.inputGroup}>
+              <ThemedView style={styles.inputGroup}>
                 <ThemedText style={styles.label}>Message</ThemedText>
                 <TextInput
                   style={[
@@ -153,7 +150,7 @@ export default function ContactScreen() {
                   numberOfLines={6}
                   textAlignVertical="top"
                 />
-              </View>
+              </ThemedView>
 
               <Pressable
                 style={({ pressed }) => [
@@ -166,15 +163,15 @@ export default function ContactScreen() {
                 onPress={handleSubmit}
                 disabled={isSubmitting}
               >
-                <ThemedText style={styles.submitButtonText}>
+                <ThemedText style={[styles.submitButtonText, { color: '#fff' }]}>
                   {isSubmitting ? 'Sending...' : 'Send Message'}
                 </ThemedText>
               </Pressable>
-            </View>
+            </ThemedView>
           </ThemedView>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </ThemedView>
   );
 }
 
@@ -188,7 +185,11 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+  },
   content: {
+    flex: 1,
     padding: 16,
     paddingBottom: 40,
     gap: 24,
@@ -233,7 +234,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },

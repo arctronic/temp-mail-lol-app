@@ -1,18 +1,17 @@
-import { useParams, Navigate, useLocation } from "react-router-dom";
+import { Mermaid } from "@/components/Mermaid";
+import { StructuredData } from "@/components/StructuredData";
+import blogPosts from "@/data/blog-posts.json";
 import { format } from "date-fns";
 import { Helmet } from "react-helmet";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from 'remark-gfm';
+import { Navigate, useLocation, useParams } from "react-router-dom";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeSlug from 'rehype-slug';
-import rehypeAutolinkHeadings from 'rehype-autolink-headings';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import blogPosts from "@/data/blog-posts.json";
-import { Mermaid } from "@/components/Mermaid";
-import { StructuredData } from "@/components/StructuredData";
-import type { Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface BlogPost {
   id: string;
@@ -77,7 +76,7 @@ const BlogPost = () => {
           publisher: {
             name: "temp-mail.lol",
             logo: {
-              url: `${window.location.origin}/logo.png`
+              url: `${window.location.origin}/assets/images/temp-mail-icon-removebg.png`
             }
           }
         }}

@@ -1,8 +1,8 @@
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { IconSymbol } from '../../components/ui/IconSymbol';
@@ -21,12 +21,13 @@ export default function LookupScreen() {
   const tintColor = useThemeColor({}, 'tint');
   const cardColor = useThemeColor({}, 'card');
   const borderColor = useThemeColor({}, 'border');
+  const warningColor = useThemeColor({}, 'warning');
   
   // Format date from MongoDB date format
-  const formatDate = (date: string | { $date: string }) => {
+  const formatDate = useCallback((date: string | { $date: string }) => {
     const dateStr = typeof date === 'string' ? date : date.$date;
     return new Date(dateStr).toLocaleString();
-  };
+  }, []);
   
   // Group emails by domain for better organization
   const emailsByDomain = useMemo(() => {
@@ -45,13 +46,13 @@ export default function LookupScreen() {
       }));
   }, [lookupEmails]);
   
-  const handleAddCurrentEmail = async () => {
+  const handleAddCurrentEmail = useCallback(async () => {
     if (generatedEmail) {
       await addEmailToLookup(generatedEmail);
     }
-  };
+  }, [generatedEmail, addEmailToLookup]);
   
-  const handleRemoveEmail = (address: string) => {
+  const handleRemoveEmail = useCallback((address: string) => {
     Alert.alert(
       'Remove Email',
       `Are you sure you want to remove ${address} from your lookup list? All saved messages will be deleted.`,
@@ -60,9 +61,9 @@ export default function LookupScreen() {
         { text: 'Remove', style: 'destructive', onPress: () => removeEmailFromLookup(address) },
       ]
     );
-  };
+  }, [removeEmailFromLookup]);
   
-  const handleViewMessage = (email: Email) => {
+  const handleViewMessage = useCallback((email: Email) => {
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
@@ -78,147 +79,200 @@ export default function LookupScreen() {
         fromLookup: 'true'
       }
     });
-  };
+  }, [router]);
   
-  const toggleExpand = (address: string) => {
-    setExpandedEmail(expandedEmail === address ? null : address);
-  };
+  const toggleExpand = useCallback((address: string) => {
+    console.log('Toggling expand for:', address, 'Current expanded:', expandedEmail);
+    setExpandedEmail(prev => {
+      const newValue = prev === address ? null : address;
+      console.log('Setting expanded to:', newValue);
+      return newValue;
+    });
+  }, [expandedEmail]);
   
   interface DomainGroup {
     domain: string;
     emails: typeof lookupEmails;
   }
 
-  const renderEmailItem = ({ item: domainGroup }: { item: DomainGroup }) => (
-    <View style={styles.domainGroup}>
+  const renderEmailItem = useCallback(({ item: domainGroup }: { item: DomainGroup }) => (
+    <ThemedView style={styles.domainGroup}>
       <ThemedView style={styles.domainHeader}>
-        <View style={styles.domainBadge}>
+        <ThemedView style={[styles.domainBadge, { backgroundColor: tintColor }]}>
           <IconSymbol name="at" size={14} color="#fff" />
-        </View>
+        </ThemedView>
         <ThemedText style={styles.domainText}>{domainGroup.domain}</ThemedText>
       </ThemedView>
       
-      {domainGroup.emails.map((email) => (
-        <View key={email.address} style={[styles.emailCard, { backgroundColor: cardColor, borderColor }]}>
-          <Pressable
-            style={styles.emailHeader}
-            onPress={() => toggleExpand(email.address)}
-          >
-            <View style={styles.emailInfo}>
-              <ThemedText style={styles.emailAddress}>{email.address}</ThemedText>
-              <ThemedText style={styles.emailMeta}>
-                Added: {new Date(email.addedAt).toLocaleDateString()}
-              </ThemedText>
-              <ThemedText style={styles.emailMeta}>
-                Messages: {email.messages.length}
-              </ThemedText>
-            </View>
-            <View style={styles.emailActions}>
-              <Pressable 
-                style={styles.actionButton}
-                onPress={() => handleRemoveEmail(email.address)}
-              >
-                <IconSymbol name="trash" size={18} color="#ff4747" />
-              </Pressable>
-              <IconSymbol 
-                name={expandedEmail === email.address ? "chevron.up" : "chevron.down"} 
-                size={18} 
-                color={textColor}
-              />
-            </View>
-          </Pressable>
-          
-          {expandedEmail === email.address && (
-            <View style={styles.messagesList}>
-              {email.messages.length === 0 ? (
-                <ThemedText style={styles.noMessages}>
-                  No messages saved for this email.
+      {domainGroup.emails.map((email) => {
+        const isExpanded = expandedEmail === email.address;
+        
+        return (
+          <ThemedView key={email.address} style={[styles.emailCard, { borderColor }]}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.emailHeader,
+                { backgroundColor: pressed ? 'rgba(0,0,0,0.05)' : 'transparent' }
+              ]}
+              onPress={() => toggleExpand(email.address)}
+            >
+              <ThemedView style={styles.emailMainInfo}>
+                <ThemedText style={styles.emailAddress} numberOfLines={1}>
+                  {email.address} ({email.messages.length})
                 </ThemedText>
-              ) : (
-                email.messages.map((message: Email, index: number) => (
-                  <Pressable
-                    key={message.id || index}
-                    style={({ pressed }) => [
-                      styles.messageItem,
-                      { opacity: pressed ? 0.7 : 1, borderColor }
-                    ]}
-                    onPress={() => handleViewMessage(message)}
-                  >
-                    <View style={styles.messageInfo}>
-                      <ThemedText style={styles.messageSender} numberOfLines={1}>
-                        {message.sender}
-                      </ThemedText>
-                      <ThemedText style={styles.messageSubject} numberOfLines={1}>
-                        {message.subject || '(No subject)'}
-                      </ThemedText>
-                      <ThemedText style={styles.messageDate}>
-                        {formatDate(message.date)}
-                      </ThemedText>
-                    </View>
-                    <IconSymbol name="chevron.right" size={16} color={textColor} />
-                  </Pressable>
-                ))
-              )}
-            </View>
-          )}
-        </View>
-      ))}
-    </View>
-  );
+                <ThemedText style={styles.emailMeta}>
+                  Added {new Date(email.addedAt).toLocaleDateString()}
+                </ThemedText>
+              </ThemedView>
+              <ThemedView style={styles.emailActions}>
+                <Pressable 
+                  style={[styles.actionButton, { backgroundColor: 'rgba(255, 71, 71, 0.1)' }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleRemoveEmail(email.address);
+                  }}
+                >
+                  <IconSymbol name="trash" size={16} color={warningColor} />
+                </Pressable>
+                <ThemedView style={[styles.expandButton, { backgroundColor: `${textColor}10` }]}>
+                  <IconSymbol 
+                    name={isExpanded ? "chevron.up" : "chevron.down"} 
+                    size={16} 
+                    color={textColor}
+                  />
+                </ThemedView>
+              </ThemedView>
+            </Pressable>
+            
+            {isExpanded && (
+              <ThemedView style={[styles.messagesList, { borderTopColor: borderColor }]}>
+                {email.messages.length === 0 ? (
+                  <ThemedView style={styles.noMessagesContainer}>
+                    <IconSymbol name="envelope" size={24} color={textColor} style={{ opacity: 0.3 }} />
+                    <ThemedText style={styles.noMessages}>
+                      No messages yet
+                    </ThemedText>
+                    <ThemedText style={styles.noMessagesSubtext}>
+                      New messages will appear here automatically
+                    </ThemedText>
+                  </ThemedView>
+                ) : (
+                  email.messages.map((message: Email, index: number) => (
+                    <Pressable
+                      key={message.id || index}
+                      style={({ pressed }) => [
+                        styles.messageItem,
+                        { 
+                          backgroundColor: pressed ? `${tintColor}10` : 'transparent',
+                          borderBottomColor: borderColor 
+                        }
+                      ]}
+                      onPress={() => handleViewMessage(message)}
+                    >
+                      <ThemedView style={styles.messageInfo}>
+                        <ThemedText style={styles.messageSender} numberOfLines={1}>
+                          {message.sender}
+                        </ThemedText>
+                        <ThemedText style={styles.messageSubject} numberOfLines={2}>
+                          {message.subject || '(No subject)'}
+                        </ThemedText>
+                        <ThemedText style={styles.messageDate}>
+                          {formatDate(message.date)}
+                        </ThemedText>
+                      </ThemedView>
+                      <IconSymbol name="chevron.right" size={14} color={textColor} style={{ opacity: 0.5 }} />
+                    </Pressable>
+                  ))
+                )}
+              </ThemedView>
+            )}
+          </ThemedView>
+        );
+      })}
+    </ThemedView>
+  ), [expandedEmail, toggleExpand, handleRemoveEmail, handleViewMessage, formatDate, tintColor, cardColor, borderColor, textColor, warningColor]);
   
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText style={styles.title}>My Lookup List</ThemedText>
-        <Pressable
-          style={({ pressed }) => [
-            styles.refreshButton,
-            { opacity: pressed ? 0.7 : 1, backgroundColor: tintColor }
-          ]}
-          onPress={refreshLookupEmails}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <IconSymbol name="arrow.clockwise" size={16} color="#fff" />
-          )}
-        </Pressable>
-      </View>
+    <ThemedView style={[styles.container, { backgroundColor }]}>
+      <ThemedView style={styles.header}>
+        <ThemedView style={styles.titleContainer}>
+          <ThemedText style={styles.title}>My Lookup List</ThemedText>
+          <ThemedView style={styles.headerActions}>
+            {isLoading && (
+              <ThemedView style={styles.loadingIndicator}>
+                <ActivityIndicator size="small" color={tintColor} />
+                <ThemedText style={styles.loadingText}>Syncing...</ThemedText>
+              </ThemedView>
+            )}
+            <Pressable
+              style={({ pressed }) => [
+                styles.syncButton,
+                { 
+                  opacity: pressed ? 0.7 : 1, 
+                  backgroundColor: tintColor 
+                }
+              ]}
+              onPress={refreshLookupEmails}
+              disabled={isLoading}
+            >
+              <IconSymbol 
+                name="arrow.clockwise" 
+                size={16} 
+                color="#fff" 
+                style={{ 
+                  transform: [{ rotate: isLoading ? '180deg' : '0deg' }] 
+                }} 
+              />
+            </Pressable>
+          </ThemedView>
+        </ThemedView>
+      </ThemedView>
       
-      <View style={styles.addSection}>
+      <ThemedView style={styles.addSection}>
         <ThemedText style={styles.addText}>
-          Add current email to lookup list:
+          Add current email to lookup list ({lookupEmails.length}/5):
         </ThemedText>
         <Pressable
           style={({ pressed }) => [
             styles.addButton,
-            { opacity: pressed ? 0.7 : 1, backgroundColor: tintColor }
+            { 
+              opacity: lookupEmails.length >= 5 ? 0.5 : (pressed ? 0.7 : 1), 
+              backgroundColor: lookupEmails.length >= 5 ? '#999' : tintColor 
+            }
           ]}
           onPress={handleAddCurrentEmail}
+          disabled={lookupEmails.length >= 5}
         >
-          <ThemedText style={styles.addButtonText}>
-            Add {generatedEmail}
+          <ThemedText style={[styles.addButtonText, { color: '#fff' }]} numberOfLines={1}>
+            {lookupEmails.length >= 5 ? 'Limit Reached (5/5)' : `Add ${generatedEmail}`}
           </ThemedText>
-          <IconSymbol name="plus" size={16} color="#fff" />
+          <IconSymbol 
+            name={lookupEmails.length >= 5 ? "exclamationmark.triangle" : "plus"} 
+            size={16} 
+            color="#fff" 
+          />
         </Pressable>
-      </View>
+      </ThemedView>
       
       {lookupEmails.length === 0 ? (
-        <View style={styles.emptyState}>
+        <ThemedView style={styles.emptyState}>
           <IconSymbol name="envelope.badge" size={60} color={textColor} style={{ opacity: 0.3 }} />
           <ThemedText style={styles.emptyTitle}>No Saved Emails</ThemedText>
           <ThemedText style={styles.emptyText}>
-            Add temporary emails to your lookup list to keep their messages even if the server deletes them.
+            Add temporary emails to your lookup list to automatically check for new messages every 30 seconds.
           </ThemedText>
-        </View>
+        </ThemedView>
       ) : (
-        <FlashList
-          data={emailsByDomain}
-          renderItem={renderEmailItem}
-          estimatedItemSize={200}
-          contentContainerStyle={styles.listContent}
-        />
+        <ThemedView style={styles.listContainer}>
+          <FlashList
+            data={emailsByDomain}
+            renderItem={renderEmailItem}
+            estimatedItemSize={150}
+            contentContainerStyle={styles.listContent}
+            keyExtractor={(item) => item.domain}
+            extraData={expandedEmail}
+          />
+        </ThemedView>
       )}
     </ThemedView>
   );
@@ -230,39 +284,50 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   header: {
+    marginBottom: 20,
+  },
+  titleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
   },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
+  loadingIndicator: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 8,
+  },
+  loadingText: {
+    fontSize: 12,
+    marginLeft: 6,
+    opacity: 0.7,
   },
   addSection: {
-    marginBottom: 20,
+    marginBottom: 24,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   addText: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: 12,
+    opacity: 0.8,
   },
   addButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 10,
+    minHeight: 48,
   },
   addButtonText: {
-    color: 'white',
-    fontWeight: '500',
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 8,
   },
   emptyState: {
     flex: 1,
@@ -279,96 +344,153 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
     opacity: 0.6,
-    lineHeight: 20,
+    lineHeight: 22,
+    fontSize: 15,
+  },
+  listContainer: {
+    flex: 1,
   },
   listContent: {
     paddingBottom: 24,
   },
   domainGroup: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   domainHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
   },
   domainBadge: {
-    backgroundColor: '#4a89ff',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 10,
   },
   domainText: {
     fontSize: 16,
     fontWeight: '600',
   },
   emailCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     marginBottom: 12,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   emailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: 20,
+    minHeight: 80,
   },
-  emailInfo: {
+  emailMainInfo: {
     flex: 1,
+    marginRight: 16,
   },
   emailAddress: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
   },
   emailMeta: {
-    fontSize: 12,
+    fontSize: 13,
     opacity: 0.6,
+    marginBottom: 0,
   },
   emailActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   actionButton: {
-    padding: 8,
-    marginRight: 8,
+    padding: 10,
+    borderRadius: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  expandButton: {
+    padding: 10,
+    borderRadius: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messagesList: {
     borderTopWidth: 1,
-    borderColor: '#e0e0e0',
-    paddingVertical: 8,
+    paddingVertical: 0,
+  },
+  noMessagesContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
   },
   noMessages: {
-    padding: 16,
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  noMessagesSubtext: {
     textAlign: 'center',
     opacity: 0.6,
+    lineHeight: 20,
+    fontSize: 14,
   },
   messageItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 72,
   },
   messageInfo: {
     flex: 1,
-    marginRight: 8,
+    marginRight: 16,
   },
   messageSender: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   messageSubject: {
-    fontSize: 13,
-    marginBottom: 4,
+    fontSize: 14,
+    marginBottom: 6,
+    opacity: 0.8,
+    lineHeight: 18,
   },
   messageDate: {
     fontSize: 12,
     opacity: 0.6,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncButton: {
+    padding: 10,
+    borderRadius: 8,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 }); 

@@ -1,13 +1,13 @@
 import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { PageHeader } from '@/components/ui/PageHeader';
 import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
 type ThemeOption = 'system' | 'light' | 'dark';
 
@@ -45,7 +45,7 @@ function ThemeButton({ label, value, icon, isSelected, onPress }: ThemeButtonPro
       ]}
       onPress={handlePress}
     >
-      <View style={styles.themeButtonContent}>
+      <ThemedView style={styles.themeButtonContent}>
         <IconSymbol
           name={icon}
           size={24}
@@ -57,15 +57,15 @@ function ThemeButton({ label, value, icon, isSelected, onPress }: ThemeButtonPro
         ]}>
           {label}
         </ThemedText>
-      </View>
+      </ThemedView>
       {isSelected && (
-        <View style={styles.selectedIcon}>
+        <ThemedView style={styles.selectedIcon}>
           <IconSymbol
             name="checkmark.circle.fill"
             size={22}
             color={tintColor}
           />
-        </View>
+        </ThemedView>
       )}
     </Pressable>
   );
@@ -92,6 +92,7 @@ export default function SettingsScreen() {
   const textSecondaryColor = useThemeColor({}, 'textSecondary');
   const borderColor = useThemeColor({}, 'border');
   const tintColor = useThemeColor({}, 'tint');
+  const backgroundColor = useThemeColor({}, 'background');
 
   const themeOptions: { label: string; value: ThemeOption; icon: ThemeIconName }[] = [
     { label: 'System', value: 'system', icon: 'gear' },
@@ -111,17 +112,16 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container} key={`settings-screen-${themeVersion}`}>
-      <PageHeader title="Settings" showBackButton />
-      <ScrollView>
-        <View style={styles.content}>
-          <View style={[styles.section, { borderBottomColor: borderColor }]}>
+    <ThemedView style={styles.container} key={`settings-screen-${themeVersion}`}>
+      <ScrollView style={{ backgroundColor }}>
+        <ThemedView style={styles.content}>
+          <ThemedView style={[styles.section, { borderBottomColor: borderColor }]}>
             <ThemedText style={styles.sectionTitle}>Appearance</ThemedText>
             <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
               Choose how Temp Mail looks to you. Select a theme preference below.
             </ThemedText>
 
-            <View style={styles.themeOptions}>
+            <ThemedView style={styles.themeOptions}>
               {themeOptions.map((option) => (
                 <ThemeButton
                   key={option.value}
@@ -132,21 +132,21 @@ export default function SettingsScreen() {
                   onPress={() => setThemePreference(option.value)}
                 />
               ))}
-            </View>
-          </View>
+            </ThemedView>
+          </ThemedView>
 
-          <View style={[styles.section, { borderBottomColor: borderColor }]}>
+          <ThemedView style={[styles.section, { borderBottomColor: borderColor }]}>
             <ThemedText style={styles.sectionTitle}>Email Refresh</ThemedText>
             <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
               Control how often Temp Mail checks for new emails. A shorter interval means quicker notifications but may use more battery.
             </ThemedText>
 
-            <View style={styles.sliderContainer}>
-              <View style={styles.sliderLabelContainer}>
+            <ThemedView style={styles.sliderContainer}>
+              <ThemedView style={styles.sliderLabelContainer}>
                 <ThemedText style={styles.sliderValue}>
                   Refresh every: {formatSeconds(tempInterval)}
                 </ThemedText>
-              </View>
+              </ThemedView>
               
               <Slider
                 style={styles.slider}
@@ -161,38 +161,38 @@ export default function SettingsScreen() {
                 thumbTintColor={tintColor}
               />
               
-              <View style={styles.sliderLabels}>
+              <ThemedView style={styles.sliderLabels}>
                 <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
                   20s
                 </ThemedText>
                 <ThemedText style={[styles.sliderLabel, { color: textSecondaryColor }]}>
                   5m
                 </ThemedText>
-              </View>
-            </View>
-          </View>
+              </ThemedView>
+            </ThemedView>
+          </ThemedView>
 
-          <View style={styles.section}>
+          <ThemedView style={styles.section}>
             <ThemedText style={styles.sectionTitle}>About</ThemedText>
             <ThemedText style={[styles.sectionDescription, { color: textSecondaryColor }]}>
               Temp Mail is a service providing disposable temporary email addresses.
               Use it to protect your privacy when signing up for services online.
             </ThemedText>
 
-            <View style={styles.appInfo}>
-              <View style={styles.appInfoRow}>
+            <ThemedView style={styles.appInfo}>
+              <ThemedView style={styles.appInfoRow}>
                 <ThemedText style={{ color: textSecondaryColor }}>Version</ThemedText>
                 <ThemedText>1.0.0</ThemedText>
-              </View>
-              <View style={[styles.appInfoRow, { borderBottomColor: borderColor }]}>
+              </ThemedView>
+              <ThemedView style={[styles.appInfoRow, { borderBottomColor: borderColor }]}>
                 <ThemedText style={{ color: textSecondaryColor }}>Build</ThemedText>
                 <ThemedText>2023.10.01</ThemedText>
-              </View>
-            </View>
-          </View>
-        </View>
+              </ThemedView>
+            </ThemedView>
+          </ThemedView>
+        </ThemedView>
       </ScrollView>
-    </View>
+    </ThemedView>
   );
 }
 

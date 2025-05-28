@@ -4,7 +4,7 @@
     "slug": "temp-mail",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/splash-icon.png",
+    "icon": "./assets/images/temp-mail-icon-removebg.png",
     "scheme": "tempmail",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,7 +14,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/splash-icon.png",
+        "foregroundImage": "./assets/images/temp-mail-icon-removebg.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.tronics.tempmail",
@@ -30,14 +30,14 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/splash-icon.png"
+      "favicon": "./assets/images/temp-mail-icon-removebg.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/temp-mail-icon-removebg.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -60,7 +60,7 @@
     "description": "Generate temporary email addresses to protect your privacy. Receive emails without revealing your personal information.",
     "primaryColor": "#0F5259",
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/temp-mail-icon-removebg.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     }

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import React, { useEffect } from 'react';
-import { AppState, StyleSheet } from 'react-native';
+import { AppState, Platform, StyleSheet } from 'react-native';
 import { GlobalLayout } from '../components/ui/GlobalLayout';
 import { EmailProvider } from '../contexts/EmailContext';
 import { LookupProvider } from '../contexts/LookupContext';
@@ -41,6 +41,14 @@ function AppWithTheme() {
     };
   }, [activeTheme]);
 
+  // Configure system UI for Android
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      // This will be handled by the StatusBar component in GlobalLayout
+      console.log('Configuring Android system UI for theme:', activeTheme);
+    }
+  }, [activeTheme]);
+
   return (
     <Stack 
       initialRouteName="(drawer)"
@@ -61,55 +69,6 @@ function AppWithTheme() {
         options={{
           headerShown: false, // Hide header for email detail screen
           presentation: 'modal',
-        }}
-      />
-      
-      <Stack.Screen
-        name="settings"
-        options={{
-          headerShown: false, // Hide header as we now use drawer header
-        }}
-      />
-      
-      <Stack.Screen
-        name="about"
-        options={{
-          headerShown: false,
-        }}
-      />
-      
-      <Stack.Screen
-        name="blog"
-        options={{
-          headerShown: false,
-        }}
-      />
-      
-      <Stack.Screen
-        name="contact"
-        options={{
-          headerShown: false,
-        }}
-      />
-      
-      <Stack.Screen
-        name="faq"
-        options={{
-          headerShown: false,
-        }}
-      />
-      
-      <Stack.Screen
-        name="privacy"
-        options={{
-          headerShown: false,
-        }}
-      />
-      
-      <Stack.Screen
-        name="terms"
-        options={{
-          headerShown: false,
         }}
       />
     </Stack>
