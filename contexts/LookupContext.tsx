@@ -8,11 +8,13 @@ import { useNotificationSettings } from './NotificationContext';
 
 // Optional notifications import - will work in development builds but not Expo Go
 let Notifications: any = null;
-try {
-  Notifications = require('expo-notifications');
-} catch (error) {
-  console.log('expo-notifications not available in Expo Go - notifications disabled');
-}
+(async () => {
+  try {
+    Notifications = await import('expo-notifications');
+  } catch (error) {
+    console.log('expo-notifications not available in Expo Go - notifications disabled');
+  }
+})();
 
 interface LookupEmail {
   address: string;
@@ -79,6 +81,13 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
   const memoryCache = useRef<Record<string, Email[]>>({});
   // Read status cache
   const readStatusCache = useRef<Record<string, Set<string>>>({});
+  // Current lookup emails ref to avoid dependency issues
+  const lookupEmailsRef = useRef<LookupEmailWithMessages[]>([]);
+
+  // Update ref whenever lookupEmails changes
+  useEffect(() => {
+    lookupEmailsRef.current = lookupEmails;
+  }, [lookupEmails]);
 
   // Request notification permissions on mount (only if notifications available)
   useEffect(() => {
@@ -199,14 +208,15 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
 
   // Create a stable query function using useCallback
   const queryFn = useCallback(async () => {
-    if (!isInitialized || lookupEmails.length === 0) return [];
+    const currentEmails = lookupEmailsRef.current;
+    if (!isInitialized || currentEmails.length === 0) return currentEmails;
     
     console.log('Syncing lookup emails with server...');
     
     try {
       // First serve from memory cache then fetch updates from server
       const updatedEmails = await Promise.all(
-        lookupEmails.map(async (lookupEmail) => {
+        currentEmails.map(async (lookupEmail) => {
           try {
             // Return immediately from memory cache for UI responsiveness
             const cachedMessages = memoryCache.current[lookupEmail.address] || [];
@@ -321,9 +331,6 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
         })
       );
       
-      // Update the lookup emails in state
-      setLookupEmails(updatedEmails);
-      
       // Save the updated timestamps to AsyncStorage
       await AsyncStorage.setItem(
         STORAGE_KEY_LOOKUP_EMAILS, 
@@ -333,12 +340,12 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       return updatedEmails;
     } catch (err) {
       console.error('Error in fetchLookupEmails:', err);
-      return lookupEmails;
+      return currentEmails;
     }
-  }, [isInitialized, lookupEmails.length, lookupEmails.map(e => e.address).join(','), sendNewEmailNotification]);
+  }, [isInitialized, sendNewEmailNotification]);
 
   // Fetch messages for all lookup emails
-  const { isLoading, error, refetch } = useQuery({
+  const { data: queryData, isLoading, error, refetch } = useQuery({
     queryKey: ['lookupEmails', lookupEmails.map(e => e.address).join(',')],
     queryFn,
     enabled: isInitialized && lookupEmails.length > 0,
@@ -348,17 +355,12 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     refetchIntervalInBackground: true, // Continue fetching even when app is in background
   });
 
-  // Auto-fetch when emails are loaded or when new emails are added
+  // Update lookupEmails when query data changes
   useEffect(() => {
-    if (isInitialized && lookupEmails.length > 0) {
-      // Start fetching immediately when emails are available
-      const timer = setTimeout(() => {
-        refetch();
-      }, 1000); // Small delay to ensure everything is set up
-      
-      return () => clearTimeout(timer);
+    if (queryData && Array.isArray(queryData)) {
+      setLookupEmails(queryData);
     }
-  }, [isInitialized, lookupEmails.length, refetch]);
+  }, [queryData]);
 
   const addEmailToLookup = async (email: string) => {
     try {
