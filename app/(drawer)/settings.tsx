@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useNotificationSettings } from '@/contexts/NotificationContext';
+import { useNotification } from '@/contexts/NotificationContext';
 import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
@@ -88,10 +88,10 @@ function formatSeconds(seconds: number): string {
 export default function SettingsScreen() {
   const { themePreference, setThemePreference, themeVersion } = useThemePreference();
   const { reloadInterval, setReloadInterval } = useReloadInterval();
-  const { notificationsEnabled, setNotificationsEnabled } = useNotificationSettings();
+  const { notificationsEnabled, setNotificationsEnabled } = useNotification();
   const [tempInterval, setTempInterval] = useState(reloadInterval);
   const textColor = useThemeColor({}, 'text');
-  const textSecondaryColor = useThemeColor({}, 'textSecondary');
+  const textSecondaryColor = useThemeColor({}, 'tabIconDefault');
   const borderColor = useThemeColor({}, 'border');
   const tintColor = useThemeColor({}, 'tint');
   const backgroundColor = useThemeColor({}, 'background');

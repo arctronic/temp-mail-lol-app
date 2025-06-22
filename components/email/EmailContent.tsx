@@ -479,7 +479,7 @@ export const EmailContent = ({ htmlContent }: EmailContentProps) => {
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 0,
     overflow: 'hidden',
     marginBottom: 16,
   },

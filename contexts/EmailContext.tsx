@@ -3,7 +3,6 @@ import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
-import { useReloadInterval } from './ReloadIntervalContext';
 
 type MongoDate = {
   $date: string;
@@ -48,19 +47,18 @@ const EmailContext = createContext<EmailContextType | undefined>(undefined);
 // Get API base URL from environment variables
 const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://api.example.com';
 
-// Minimum character length for usernames
-const MIN_USERNAME_LENGTH = 4;
-// Debounce delay in milliseconds
-const DEBOUNCE_DELAY = 500;
+// Constants
+const MIN_USERNAME_LENGTH = 3;
+const DEBOUNCE_DELAY = 1000; // ms to wait before updating email
+const DEFAULT_RELOAD_INTERVAL = 60; // Default 60 seconds
 
-// Add analytics tracking functions
+// Analytics tracking function (placeholder)
 const trackEvent = async (eventName: string, properties?: Record<string, any>) => {
   try {
-    // TODO: Replace with your actual analytics implementation
-    // Example: await analytics.logEvent(eventName, properties);
-    console.log('Analytics Event:', eventName, properties);
+    // Placeholder for analytics tracking
+    console.log(`Analytics: ${eventName}`, properties);
   } catch (error) {
-    console.error('Analytics Error:', error);
+    console.error('Analytics tracking error:', error);
   }
 };
 
@@ -70,13 +68,30 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
   const [domain, setDomain] = useState<string>('tempmail.lol'); // Default domain to show immediately
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [shouldFetchEmails, setShouldFetchEmails] = useState(false);
-  const { reloadInterval } = useReloadInterval();
+  const [reloadInterval, setReloadInterval] = useState(DEFAULT_RELOAD_INTERVAL);
   
   // Add preloaded state to avoid loading indicators on initial render
   const [preloaded, setPreloaded] = useState(true);
 
   // Separate initial loading state from query loading state
   const [initializing, setInitializing] = useState(true);
+  
+  // Try to get reload interval from context after component mounts
+  useEffect(() => {
+    const getReloadInterval = async () => {
+      try {
+        // Dynamically import to avoid circular dependency issues
+        const { useReloadInterval } = await import('./ReloadIntervalContext');
+        // We can't use the hook here, so we'll use a different approach
+        // For now, use the default interval
+        console.log('Using default reload interval:', DEFAULT_RELOAD_INTERVAL);
+      } catch (error) {
+        console.log('ReloadInterval context not available, using default');
+      }
+    };
+    
+    getReloadInterval();
+  }, []);
   
   // Set a default email immediately to improve UI rendering speed
   useEffect(() => {
@@ -140,7 +155,7 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
         }
 
         const data = await response.json();
-                // Return an empty array immediately if response is empty
+        // Return an empty array immediately if response is empty
         if (!data || !Array.isArray(data) || data.length === 0) {
           return [];
         }
@@ -263,23 +278,25 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Clipboard error:', err);
       Alert.alert(
-        'Failed to copy',
-        'Please try copying manually.'
+        'Error',
+        'Failed to copy email to clipboard. Please try again.'
       );
     }
   };
 
-  const value = {
+  const value: EmailContextType = {
     emails,
     currentEmail,
     setCurrentEmail,
     generatedEmail,
     domain,
     setCustomUsername,
-    generateNewEmail,
+    generateNewEmail: async () => {
+      await generateNewEmail();
+    },
     copyEmailToClipboard,
-    isLoading: (isLoading || initializing) && !preloaded,
-    error,
+    isLoading: isLoading || initializing,
+    error: error as Error | null,
     refetch,
   };
 

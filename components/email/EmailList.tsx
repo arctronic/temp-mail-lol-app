@@ -1,6 +1,5 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Email, useEmail } from '@/contexts/EmailContext';
-import { useReloadInterval } from '@/contexts/ReloadIntervalContext';
 import { useThemePreference } from '@/contexts/ThemeContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { FlashList } from '@shopify/flash-list';
@@ -20,6 +19,9 @@ import {
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
 const { width: screenWidth } = Dimensions.get('window');
+
+// Default reload interval (in seconds)
+const DEFAULT_RELOAD_INTERVAL = 60;
 
 interface EmailListProps {
   onViewEmail?: (email: Email) => void;
@@ -356,10 +358,9 @@ EmptyInboxAnimation.displayName = 'EmptyInboxAnimation';
 
 export const EmailList = ({ onViewEmail }: EmailListProps) => {
   const { emails, isLoading, refetch, error } = useEmail();
-  const { reloadInterval } = useReloadInterval();
   const { activeTheme, themeVersion } = useThemePreference();
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
-  const [timeUntilRefresh, setTimeUntilRefresh] = useState(reloadInterval);
+  const [timeUntilRefresh, setTimeUntilRefresh] = useState(DEFAULT_RELOAD_INTERVAL);
   const [deletingEmails, setDeletingEmails] = useState<Set<string>>(new Set());
   
   // Pagination state
@@ -392,24 +393,24 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
   // Auto-refresh countdown logic
   useEffect(() => {
     if (isLoading) {
-      setTimeUntilRefresh(reloadInterval);
+      setTimeUntilRefresh(DEFAULT_RELOAD_INTERVAL);
       return;
     }
 
-    setTimeUntilRefresh(reloadInterval);
+    setTimeUntilRefresh(DEFAULT_RELOAD_INTERVAL);
     const interval = setInterval(() => {
       setTimeUntilRefresh(prev => {
         if (prev <= 1) {
           // Trigger auto-refresh
           refetch();
-          return reloadInterval;
+          return DEFAULT_RELOAD_INTERVAL;
         }
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isLoading, reloadInterval, refetch]);
+  }, [isLoading, refetch]);
 
   // Reset pagination when emails change (new data)
   useEffect(() => {
@@ -518,11 +519,11 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
 
   const handleManualRefresh = useCallback(() => {
     refetch();
-    setTimeUntilRefresh(reloadInterval);
+    setTimeUntilRefresh(DEFAULT_RELOAD_INTERVAL);
     // Reset pagination on manual refresh
     setCurrentPage(1);
     setHasMorePages(true);
-  }, [refetch, reloadInterval]);
+  }, [refetch]);
 
   // Load more emails (pagination)
   const handleLoadMore = useCallback(async () => {

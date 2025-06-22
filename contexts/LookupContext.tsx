@@ -1,34 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useAds } from './AdContext';
 import { Email } from './EmailContext';
-import { useNotificationSettings } from './NotificationContext';
-
-// Configure notifications only if available
-let Notifications: any = null;
-let notificationsAvailable = false;
-
-try {
-  Notifications = require('expo-notifications');
-  notificationsAvailable = true;
-  
-  // Only configure notifications if not in Expo Go
-  if (!__DEV__ || Platform.OS !== 'android') {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    });
-  }
-} catch (error) {
-  console.log('expo-notifications not available - notifications disabled');
-  notificationsAvailable = false;
-}
+import { useNotification } from './NotificationContext';
 
 interface LookupEmail {
   address: string;
@@ -154,7 +130,7 @@ const safeAsyncStorageGetItem = async (key: string): Promise<string | null> => {
 export function LookupProvider({ children }: { children: React.ReactNode }) {
   const [lookupEmails, setLookupEmails] = useState<LookupEmailWithMessages[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const { notificationsEnabled } = useNotificationSettings();
+  const { notificationsEnabled, notificationsSupported, updateLookupEmailStatus, showSuccessToast, showErrorToast } = useNotification();
   const { showInterstitialAd, canShowAd, incrementAction } = useAds();
   
   // In-memory cache reference for faster access
@@ -169,25 +145,6 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     lookupEmailsRef.current = lookupEmails;
   }, [lookupEmails]);
 
-  // Request notification permissions on mount (only if notifications available)
-  useEffect(() => {
-    const requestPermissions = async () => {
-      if (notificationsAvailable && Notifications && !(__DEV__ && Platform.OS === 'android')) {
-        try {
-          const { status } = await Notifications.requestPermissionsAsync();
-          if (status !== 'granted') {
-            console.log('Notification permissions not granted');
-          }
-        } catch (error) {
-          console.log('Failed to request notification permissions:', error);
-        }
-      } else {
-        console.log('Skipping notification permissions in Expo Go development');
-      }
-    };
-    requestPermissions();
-  }, []);
-
   // Load saved lookup emails on mount
   useEffect(() => {
     const loadLookupEmails = async () => {
@@ -198,480 +155,334 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
         if (storedEmails) {
           const parsedEmails: LookupEmail[] = JSON.parse(storedEmails);
           
-          // Load messages and read status for each email
-          const emailsWithMessages: LookupEmailWithMessages[] = await Promise.all(
-            parsedEmails.map(async (email) => {
-              const messagesKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email.address}`;
-              const readStatusKey = `${STORAGE_KEY_READ_STATUS_PREFIX}${email.address}`;
-              
-              const storedMessages = await safeAsyncStorageGetItem(messagesKey);
-              const storedReadStatus = await safeAsyncStorageGetItem(readStatusKey);
-              
-              let messages = storedMessages ? JSON.parse(storedMessages) : [];
-              const readMessageIds = storedReadStatus ? new Set<string>(JSON.parse(storedReadStatus)) : new Set<string>();
-              
-              // Clean up messages to prevent storage overflow
-              messages = cleanupOldMessages(messages);
-              
-              // Cache the cleaned messages and read status in memory for faster access
-              memoryCache.current[email.address] = messages;
-              readStatusCache.current[email.address] = readMessageIds;
-              
-              // Mark messages as read/unread based on stored status
-              const messagesWithReadStatus = messages.map((message: Email) => ({
-                ...message,
-                read: readMessageIds.has(message.id)
-              }));
-              
-              const unreadCount = messagesWithReadStatus.filter((m: Email) => !m.read).length;
-              
+          // Load messages for each lookup email
+          const emailsWithMessages = await Promise.all(
+            parsedEmails.map(async (lookupEmail) => {
+              const cachedMessages = await loadEmailMessages(lookupEmail.address);
               return {
-                ...email,
-                messages: messagesWithReadStatus,
-                unreadCount,
+                ...lookupEmail,
+                messages: cachedMessages || [],
+                unreadCount: getUnreadCount(lookupEmail.address),
               };
             })
           );
           
-          console.log(`Loaded ${emailsWithMessages.length} lookup emails with their messages.`);
           setLookupEmails(emailsWithMessages);
+          console.log(`Loaded ${emailsWithMessages.length} lookup emails from storage`);
         } else {
-          console.log('No stored lookup emails found.');
+          console.log('No lookup emails found in storage');
         }
-        
-        setIsInitialized(true);
       } catch (error) {
-        console.error('Error loading lookup emails:', error);
-        // Clear corrupted data and start fresh
-        try {
-          await AsyncStorage.multiRemove([STORAGE_KEY_LOOKUP_EMAILS]);
-          console.log('Cleared corrupted lookup data');
-        } catch (clearError) {
-          console.error('Failed to clear corrupted data:', clearError);
-        }
+        console.error('Failed to load lookup emails:', error);
+      } finally {
         setIsInitialized(true);
       }
     };
-    
+
+    const loadReadStatuses = async () => {
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const readStatusKeys = keys.filter(key => key.startsWith(STORAGE_KEY_READ_STATUS_PREFIX));
+        
+        for (const key of readStatusKeys) {
+          const emailAddress = key.replace(STORAGE_KEY_READ_STATUS_PREFIX, '');
+          const readStatusData = await safeAsyncStorageGetItem(key);
+          
+          if (readStatusData) {
+            const readMessageIds: string[] = JSON.parse(readStatusData);
+            readStatusCache.current[emailAddress] = new Set(readMessageIds);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load read statuses:', error);
+      }
+    };
+
+    loadReadStatuses();
     loadLookupEmails();
   }, []);
 
-  // Send notification for new emails (only if notifications available and enabled)
-  const sendNewEmailNotification = useCallback(async (emailAddress: string, newMessages: Email[]) => {
-    if (!notificationsAvailable || !Notifications) {
-      console.log('Notifications not available - skipping notification');
-      return;
-    }
-    
-    if (!notificationsEnabled) {
-      console.log('Notifications disabled by user - skipping notification');
-      return;
-    }
-    
-    // Skip notifications in development with Expo Go
-    if (__DEV__ && Platform.OS === 'android') {
-      console.log('Skipping notifications in Expo Go development');
-      return;
-    }
-    
+  // Load cached messages for a specific email
+  const loadEmailMessages = async (emailAddress: string): Promise<Email[]> => {
     try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Temp Mail - New Email',
-          body: `${newMessages.length} new message${newMessages.length > 1 ? 's' : ''} for ${emailAddress}`,
-          data: {
-            emailAddress,
-            count: newMessages.length,
-            hasOTP: false,
-            // Add the latest message data for deep linking
-            latestMessage: newMessages.length > 0 ? {
-              id: newMessages[0].id,
-              from: newMessages[0].sender,
-              to: newMessages[0].receiver,
-              subject: newMessages[0].subject,
-              date: typeof newMessages[0].date === 'string' ? newMessages[0].date : newMessages[0].date.$date,
-            } : null,
-            action: 'openEmail'
-          },
-          sound: true,
-          priority: 'default',
-        },
-        trigger: null, // Send immediately
-      });
+      const storageKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${emailAddress}`;
+      const cachedData = await safeAsyncStorageGetItem(storageKey);
       
+      if (cachedData) {
+        const cachedMessages: Email[] = JSON.parse(cachedData);
+        memoryCache.current[emailAddress] = cachedMessages;
+        return cachedMessages;
+      }
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error(`Failed to load cached messages for ${emailAddress}:`, error);
     }
-  }, [notificationsEnabled]);
-
-  // Create a stable query function using useCallback
-  const queryFn = useCallback(async () => {
-    const currentEmails = lookupEmailsRef.current;
-    if (!isInitialized || currentEmails.length === 0) return currentEmails;
     
-    console.log('Syncing lookup emails with server...');
-    
+    return [];
+  };
+
+  // Save email messages to storage
+  const saveEmailMessages = async (emailAddress: string, messages: Email[]): Promise<void> => {
     try {
-      // First serve from memory cache then fetch updates from server
-      const updatedEmails = await Promise.all(
-        currentEmails.map(async (lookupEmail) => {
-          try {
-            // Return immediately from memory cache for UI responsiveness
-            const cachedMessages = memoryCache.current[lookupEmail.address] || [];
-            
-            // Fetch more frequently - only skip if fetched in the last 30 seconds (to avoid excessive calls)
-            const shouldFetch = Date.now() - lookupEmail.lastFetchedAt > 30 * 1000;
-            
-            if (!shouldFetch) {
-              console.log(`Skipping fetch for ${lookupEmail.address} - recently updated`);
-              return {
-                ...lookupEmail,
-                messages: cachedMessages
-              };
-            }
-            
-            console.log(`Fetching new messages for lookup email: ${lookupEmail.address}`);
-            
-            // Fetch from server in the background
-            const response = await fetch(`${API_BASE_URL}/api/emails/${encodeURIComponent(lookupEmail.address)}`, {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-              },
-              credentials: 'omit',
-            });
-            
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (!data || !Array.isArray(data)) {
-              return {
-                ...lookupEmail,
-                lastFetchedAt: Date.now(),
-                messages: cachedMessages
-              };
-            }
-            
-            // Process and normalize email data
-            const newMessages = data.map((email, idx) => ({
-              ...email,
-              id: email.id || email._id || `${email.subject || 'no-subject'}-${email.date || idx}`,
-              date: typeof email.date === 'string' ? { $date: email.date } : email.date,
-              created_at: typeof email.created_at === 'string' ? { $date: email.created_at } : email.created_at,
-              updated_at: typeof email.updated_at === 'string' ? { $date: email.updated_at } : email.updated_at,
-            }));
-            
-            // Generate unique IDs for existing messages
-            const existingMessageIds = new Set(
-              cachedMessages.map(generateMessageUniqueId)
-            );
-            
-            // Filter out duplicates and identify truly new messages
-            const uniqueNewMessages = newMessages.filter(
-              (message) => !existingMessageIds.has(generateMessageUniqueId(message))
-            );
-            
-            if (uniqueNewMessages.length > 0) {
-              console.log(`Found ${uniqueNewMessages.length} new messages for ${lookupEmail.address}`);
-              
-              // Mark new messages as unread
-              const newMessagesWithReadStatus = uniqueNewMessages.map(message => ({
-                ...message,
-                read: false
-              }));
-              
-              // Combine with existing messages
-              const combinedMessages = [...cachedMessages, ...newMessagesWithReadStatus];
-              
-              // Update memory cache first for immediate access
-              memoryCache.current[lookupEmail.address] = combinedMessages;
-              
-              // Calculate unread count
-              const currentReadStatus = readStatusCache.current[lookupEmail.address] || new Set<string>();
-              const unreadCount = combinedMessages.filter((m: Email) => !currentReadStatus.has(m.id)).length;
-              
-              // Clean and limit messages before storage
-              const cleanedMessages = cleanupOldMessages(combinedMessages);
-              
-              // Then update AsyncStorage in the background
-              const messagesKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${lookupEmail.address}`;
-              await safeAsyncStorageSetItem(messagesKey, JSON.stringify(cleanedMessages));
-              
-              // Send notification for new emails
-              await sendNewEmailNotification(lookupEmail.address, uniqueNewMessages);
-              
-              return {
-                ...lookupEmail,
-                lastFetchedAt: Date.now(),
-                messages: combinedMessages,
-                unreadCount,
-              };
-            } else {
-              console.log(`No new messages for ${lookupEmail.address}`);
-              
-              // Still update unread count for existing messages
-              const currentReadStatus = readStatusCache.current[lookupEmail.address] || new Set<string>();
-              const unreadCount = cachedMessages.filter((m: Email) => !currentReadStatus.has(m.id)).length;
-              
-              return {
-                ...lookupEmail,
-                lastFetchedAt: Date.now(),
-                messages: cachedMessages,
-                unreadCount,
-              };
-            }
-          } catch (err) {
-            console.error(`Error fetching messages for ${lookupEmail.address}:`, err);
-            // Return existing data on error
-            return lookupEmail;
-          }
-        })
-      );
+      const storageKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${emailAddress}`;
+      const cleanedMessages = cleanupOldMessages(messages);
       
-      // Save the updated timestamps to AsyncStorage
-      await safeAsyncStorageSetItem(
-        STORAGE_KEY_LOOKUP_EMAILS, 
-        JSON.stringify(updatedEmails.map(({ messages, ...rest }) => rest))
-      );
-      
-      return updatedEmails;
-    } catch (err) {
-      console.error('Error in fetchLookupEmails:', err);
-      return currentEmails;
-    }
-  }, [isInitialized, sendNewEmailNotification]);
-
-  // Fetch messages for all lookup emails
-  const { data: queryData, isLoading, error, refetch } = useQuery({
-    queryKey: ['lookupEmails', lookupEmails.map(e => e.address).join(',')],
-    queryFn,
-    enabled: isInitialized && lookupEmails.length > 0,
-    refetchInterval: 30000, // Check every 30 seconds for new messages
-    refetchOnWindowFocus: true, // Refetch when app comes back to focus
-    staleTime: 15000, // Consider data fresh for 15 seconds
-    refetchIntervalInBackground: true, // Continue fetching even when app is in background
-  });
-
-  // Update lookupEmails when query data changes
-  useEffect(() => {
-    if (queryData && Array.isArray(queryData)) {
-      setLookupEmails(queryData);
-    }
-  }, [queryData]);
-
-  const addEmailToLookup = async (email: string) => {
-    try {
-      // Check if already exists
-      if (lookupEmails.some(e => e.address === email)) {
-        Alert.alert(
-          'Already Saved',
-          'This email is already in your lookup list.'
-        );
-        return;
+      const success = await safeAsyncStorageSetItem(storageKey, JSON.stringify(cleanedMessages));
+      if (success) {
+        memoryCache.current[emailAddress] = cleanedMessages;
+      } else {
+        console.warn(`Failed to save messages for ${emailAddress} - storage may be full`);
       }
-      
-      // Check maximum limit of 5 emails
-      if (lookupEmails.length >= 5) {
-        Alert.alert(
-          'Limit Reached',
-          'You can only save up to 5 emails in your lookup list. Please remove an existing email to add a new one.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { 
-              text: 'Watch Ad for +5 More', 
-              onPress: async () => {
-                try {
-                  await showInterstitialAd();
-                  // Temporarily allow one more email
-                  await addEmailToLookupWithoutLimit(email);
-                } catch (error) {
-                  console.error('Failed to show ad:', error);
-                }
-              }
-            }
-          ]
-        );
-        return;
-      }
-      
-      // Increment lookup counter for ads
-      incrementAction('lookup');
-      
-      // Show ad if conditions are met
-      if (canShowAd('lookup')) {
-        await showInterstitialAd();
-      }
-      
-      await addEmailToLookupWithoutLimit(email);
-      
     } catch (error) {
-      console.error('Error adding email to lookup:', error);
-      Alert.alert(
-        'Error',
-        'Failed to add email to lookup list. Please try again.'
-      );
+      console.error(`Failed to save messages for ${emailAddress}:`, error);
     }
   };
 
+  // Fetch messages from API
+  const fetchEmailMessages = async (emailAddress: string): Promise<Email[]> => {
+    try {
+      console.log(`Fetching messages for ${emailAddress}...`);
+      const response = await fetch(`${API_BASE_URL}/messages/${emailAddress}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log(`No messages found for ${emailAddress}`);
+          return [];
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const messages: Email[] = data.messages || [];
+      
+      console.log(`✅ Fetched ${messages.length} messages for ${emailAddress}`);
+      
+      // Save to storage and memory cache
+      await saveEmailMessages(emailAddress, messages);
+      
+      return messages;
+    } catch (error) {
+      console.error(`❌ Failed to fetch messages for ${emailAddress}:`, error);
+      throw error;
+    }
+  };
+
+  // Get unread count for an email (using cached read status)
+  const getUnreadCount = (emailAddress: string): number => {
+    const readMessages = readStatusCache.current[emailAddress] || new Set();
+    const messages = memoryCache.current[emailAddress] || [];
+    return messages.filter(message => !readMessages.has(generateMessageUniqueId(message))).length;
+  };
+
+  // Check if a specific message is read
+  const isEmailRead = (emailAddress: string, messageId: string): boolean => {
+    const readMessages = readStatusCache.current[emailAddress] || new Set();
+    return readMessages.has(messageId);
+  };
+
+  // Mark a message as read
+  const markEmailAsRead = async (emailAddress: string, messageId: string): Promise<void> => {
+    try {
+      if (!readStatusCache.current[emailAddress]) {
+        readStatusCache.current[emailAddress] = new Set();
+      }
+      
+      readStatusCache.current[emailAddress].add(messageId);
+      
+      // Save to AsyncStorage
+      const storageKey = `${STORAGE_KEY_READ_STATUS_PREFIX}${emailAddress}`;
+      const readMessageIds = Array.from(readStatusCache.current[emailAddress]);
+      await safeAsyncStorageSetItem(storageKey, JSON.stringify(readMessageIds));
+      
+      // Update the lookup emails state to reflect new unread count
+      setLookupEmails(prev => 
+        prev.map(lookupEmail => 
+          lookupEmail.address === emailAddress 
+            ? { ...lookupEmail, unreadCount: getUnreadCount(emailAddress) }
+            : lookupEmail
+        )
+      );
+      
+    } catch (error) {
+      console.error(`Failed to mark message as read:`, error);
+    }
+  };
+
+  // Get total unread count across all lookup emails
+  const getTotalUnreadCount = (): number => {
+    return lookupEmails.reduce((total, email) => total + (email.unreadCount || 0), 0);
+  };
+
+  // Fetcher function for react-query
+  const fetchEmailData = async (): Promise<LookupEmailWithMessages[]> => {
+    if (!isInitialized || lookupEmails.length === 0) {
+      return lookupEmails;
+    }
+
+    console.log('🔄 Refreshing lookup emails...');
+    
+    const updatedEmails = await Promise.all(
+      lookupEmails.map(async (lookupEmail) => {
+        try {
+          const messages = await fetchEmailMessages(lookupEmail.address);
+          const unreadCount = getUnreadCount(lookupEmail.address);
+          
+          // Update notification status for this email
+          if (notificationsEnabled && notificationsSupported) {
+            const latestMessage = messages.length > 0 ? messages[0] : undefined;
+            updateLookupEmailStatus(
+              lookupEmail.address,
+              unreadCount > 0,
+              unreadCount,
+              latestMessage ? {
+                id: generateMessageUniqueId(latestMessage),
+                from: latestMessage.sender,
+                subject: latestMessage.subject || 'No Subject',
+                date: typeof latestMessage.date === 'string' ? latestMessage.date : latestMessage.date.$date,
+                to: latestMessage.receiver
+              } : undefined
+            );
+          }
+          
+          return {
+            ...lookupEmail,
+            messages,
+            unreadCount,
+            lastFetchedAt: Date.now(),
+          };
+        } catch (error) {
+          console.error(`Failed to fetch messages for ${lookupEmail.address}:`, error);
+          return {
+            ...lookupEmail,
+            unreadCount: getUnreadCount(lookupEmail.address),
+          };
+        }
+      })
+    );
+
+    return updatedEmails;
+  };
+
+  // Use react-query for automatic data fetching and caching
+  const {
+    data: fetchedLookupEmails,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['lookupEmails', lookupEmails.map(e => e.address).sort()],
+    queryFn: fetchEmailData,
+    enabled: isInitialized && lookupEmails.length > 0,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 10000, // Consider data stale after 10 seconds
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+  });
+
+  // Update state when fetch completes
+  useEffect(() => {
+    if (fetchedLookupEmails) {
+      setLookupEmails(fetchedLookupEmails);
+    }
+  }, [fetchedLookupEmails]);
+
+  const addEmailToLookup = async (email: string) => {
+    // Show ad before adding (every 3rd addition)
+    if (canShowAd('lookup')) {
+      await showInterstitialAd();
+    }
+    
+         await addEmailToLookupWithoutLimit(email);
+     incrementAction('lookup');
+  };
+
   const addEmailToLookupWithoutLimit = async (email: string) => {
-    const newLookupEmail: LookupEmailWithMessages = {
-      address: email,
-      addedAt: Date.now(),
-      lastFetchedAt: 0, // Set to 0 to ensure immediate fetch
-      messages: [],
-    };
-    
-    // Initialize empty messages array in memory cache
-    memoryCache.current[email] = [];
-    
-    const updatedLookupEmails = [...lookupEmails, newLookupEmail];
-    
-    // Save to state
-    setLookupEmails(updatedLookupEmails);
-    
-    // Save to AsyncStorage (without messages to avoid duplication)
-    await safeAsyncStorageSetItem(
-      STORAGE_KEY_LOOKUP_EMAILS, 
-      JSON.stringify(updatedLookupEmails.map(({ messages, ...rest }) => rest))
-    );
-    
-    // Initialize empty messages array for this email
-    await safeAsyncStorageSetItem(
-      `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email}`,
-      JSON.stringify([])
-    );
-    
-    // Trigger immediate fetch for the new email
-    setTimeout(() => {
-      refetch();
-    }, 500);
-    
-    Alert.alert(
-      'Email Added',
-      'Email has been added to your lookup list. Checking for messages now...'
-    );
+    try {
+      console.log(`Adding ${email} to lookup list...`);
+      
+      // Check if email already exists
+      const existingEmail = lookupEmails.find(e => e.address === email);
+      if (existingEmail) {
+        showErrorToast('Email already in lookup list');
+        return;
+      }
+
+      const newLookupEmail: LookupEmail = {
+        address: email,
+        addedAt: Date.now(),
+        lastFetchedAt: 0,
+      };
+
+      // Add to state first for immediate UI update
+      const newLookupEmailWithMessages: LookupEmailWithMessages = {
+        ...newLookupEmail,
+        messages: [],
+        unreadCount: 0,
+      };
+
+      setLookupEmails(prev => [...prev, newLookupEmailWithMessages]);
+
+      // Save to storage
+      const updatedLookupEmails = [...lookupEmails, newLookupEmail];
+      await safeAsyncStorageSetItem(STORAGE_KEY_LOOKUP_EMAILS, JSON.stringify(updatedLookupEmails));
+
+      console.log(`✅ Added ${email} to lookup list`);
+      showSuccessToast(`Added ${email} to monitoring`);
+      
+    } catch (error) {
+      console.error('Failed to add email to lookup:', error);
+      showErrorToast('Failed to add email');
+      throw error;
+    }
   };
 
   const removeEmailFromLookup = async (email: string) => {
     try {
+      console.log(`Removing ${email} from lookup list...`);
+      
+      // Remove from state
       const updatedLookupEmails = lookupEmails.filter(e => e.address !== email);
-      
-      // Update state
       setLookupEmails(updatedLookupEmails);
+
+      // Save to storage
+      const storageEmails = updatedLookupEmails.map(e => ({
+        address: e.address,
+        addedAt: e.addedAt,
+        lastFetchedAt: e.lastFetchedAt,
+      }));
+      await safeAsyncStorageSetItem(STORAGE_KEY_LOOKUP_EMAILS, JSON.stringify(storageEmails));
+
+      // Clean up related data
+      const messageStorageKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email}`;
+      const readStatusKey = `${STORAGE_KEY_READ_STATUS_PREFIX}${email}`;
       
-      // Remove from memory cache
+      await AsyncStorage.multiRemove([messageStorageKey, readStatusKey]);
+      
+      // Clean up memory cache
       delete memoryCache.current[email];
+      delete readStatusCache.current[email];
+
+      console.log(`✅ Removed ${email} from lookup list`);
+      showSuccessToast(`Removed ${email} from monitoring`);
       
-      // Update AsyncStorage
-      await safeAsyncStorageSetItem(
-        STORAGE_KEY_LOOKUP_EMAILS, 
-        JSON.stringify(updatedLookupEmails.map(({ messages, ...rest }) => rest))
-      );
-      
-      // Remove messages
-      await AsyncStorage.removeItem(`${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email}`);
-      
-      Alert.alert(
-        'Email Removed',
-        'Email and its messages have been removed from your lookup list.'
-      );
     } catch (error) {
-      console.error('Error removing email from lookup:', error);
-      Alert.alert(
-        'Error',
-        'Failed to remove email from lookup list. Please try again.'
-      );
+      console.error('Failed to remove email from lookup:', error);
+      showErrorToast('Failed to remove email');
+      throw error;
     }
   };
 
   const refreshLookupEmails = async () => {
     try {
-      // Increment refresh counter for ads
-      incrementAction('refresh');
-      
-      // Show ad if conditions are met
-      if (canShowAd('refresh')) {
-        await showInterstitialAd();
-      }
-      
-      // Force immediate refetch
+      console.log('🔄 Manually refreshing lookup emails...');
       await refetch();
-      
-      Alert.alert(
-        'Refreshed',
-        'Your lookup emails have been refreshed with the latest messages.'
-      );
+      showSuccessToast('Refreshed email monitoring');
     } catch (error) {
-      console.error('Error refreshing lookup emails:', error);
-      Alert.alert(
-        'Error',
-        'Failed to refresh lookup emails. Please try again.'
-      );
+      console.error('Failed to refresh lookup emails:', error);
+      showErrorToast('Failed to refresh emails');
+      throw error;
     }
   };
 
-  const markEmailAsRead = async (emailAddress: string, messageId: string) => {
-    try {
-      // Update read status cache
-      if (!readStatusCache.current[emailAddress]) {
-        readStatusCache.current[emailAddress] = new Set<string>();
-      }
-      readStatusCache.current[emailAddress].add(messageId);
-      
-      // Update lookup emails state
-      const updatedEmails = lookupEmails.map(email =>
-        email.address === emailAddress ? {
-          ...email,
-          messages: email.messages.map(message =>
-            message.id === messageId ? { ...message, read: true } : message
-          ),
-          unreadCount: Math.max(0, (email.unreadCount || 0) - 1)
-        } : email
-      );
-      
-      setLookupEmails(updatedEmails);
-      
-      // Save read status to AsyncStorage
-      const readStatusKey = `${STORAGE_KEY_READ_STATUS_PREFIX}${emailAddress}`;
-      const readMessageIds = Array.from(readStatusCache.current[emailAddress]);
-      await safeAsyncStorageSetItem(readStatusKey, JSON.stringify(readMessageIds));
-      
-      // Update messages in AsyncStorage with read status
-      const messagesKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${emailAddress}`;
-      const updatedEmail = updatedEmails.find(e => e.address === emailAddress);
-      if (updatedEmail) {
-        const cleanedMessages = cleanupOldMessages(updatedEmail.messages);
-        await safeAsyncStorageSetItem(messagesKey, JSON.stringify(cleanedMessages));
-      }
-      
-    } catch (error) {
-      console.error('Error marking email as read:', error);
-      Alert.alert(
-        'Error',
-        'Failed to mark email as read. Please try again.'
-      );
-    }
-  };
-
-  const isEmailRead = (emailAddress: string, messageId: string) => {
-    const readStatus = readStatusCache.current[emailAddress];
-    return readStatus ? readStatus.has(messageId) : false;
-  };
-
-  const getUnreadCount = (emailAddress: string) => {
-    const email = lookupEmails.find(e => e.address === emailAddress);
-    return email?.unreadCount || 0;
-  };
-
-  const getTotalUnreadCount = () => {
-    return lookupEmails.reduce((total, email) => total + (email.unreadCount || 0), 0);
-  };
-
-  const value = {
+  const value: LookupContextType = {
     lookupEmails,
     addEmailToLookup,
     removeEmailFromLookup,
@@ -680,8 +491,8 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     isEmailRead,
     getUnreadCount,
     getTotalUnreadCount,
-    isLoading,
-    error,
+    isLoading: isLoading || !isInitialized,
+    error: error as Error | null,
   };
 
   return (
