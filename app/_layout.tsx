@@ -3,6 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { AppState, Platform, StyleSheet } from 'react-native';
 import { GlobalLayout } from '../components/ui/GlobalLayout';
+import { AdProvider } from '../contexts/AdContext';
 import { EmailProvider } from '../contexts/EmailContext';
 import { LookupProvider } from '../contexts/LookupContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
@@ -118,17 +119,19 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <ReloadIntervalProvider>
-          <EmailProvider>
-            <NotificationProvider>
-              <LookupProvider>
-                <GlobalLayout>
-                  <AppWithTheme />
-                </GlobalLayout>
-              </LookupProvider>
-            </NotificationProvider>
-          </EmailProvider>
-        </ReloadIntervalProvider>
+        <AdProvider>
+          <ReloadIntervalProvider>
+            <EmailProvider>
+              <NotificationProvider>
+                <LookupProvider>
+                  <GlobalLayout>
+                    <AppWithTheme />
+                  </GlobalLayout>
+                </LookupProvider>
+              </NotificationProvider>
+            </EmailProvider>
+          </ReloadIntervalProvider>
+        </AdProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

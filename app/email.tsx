@@ -1,7 +1,18 @@
 import * as Clipboard from 'expo-clipboard';
+import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, {
+    FadeInDown,
+    FadeInUp,
+    SlideInRight,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming
+} from 'react-native-reanimated';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { AppHeader } from '../components/ui/AppHeader';
@@ -14,6 +25,8 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { EmailAttachments } from '../components/email/EmailAttachments';
 import { EmailContent } from '../components/email/EmailContent';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export default function EmailDetailScreen() {
   const params = useLocalSearchParams();
   const { id, fromLookup, autoMarkRead } = params;
@@ -24,7 +37,16 @@ export default function EmailDetailScreen() {
   const textColor = useThemeColor({}, 'text');
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'tint');
+  const mutedColor = useThemeColor({}, 'tabIconDefault');
+  
   const [showDetails, setShowDetails] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<string>('');
+  
+  // Animation values
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(-20);
+  const contentOpacity = useSharedValue(0);
+  const toolbarScale = useSharedValue(0.9);
   
   const { emails, refetch } = useEmail();
   const { lookupEmails, markEmailAsRead } = useLookup();
@@ -71,6 +93,14 @@ export default function EmailDetailScreen() {
     }
   }, [shouldAutoMarkRead, isFromLookup, email?.id, params.to, markEmailAsRead]);
   
+  // Animation initialization
+  useEffect(() => {
+    headerOpacity.value = withTiming(1, { duration: 600 });
+    headerTranslateY.value = withSpring(0, { damping: 15 });
+    contentOpacity.value = withTiming(1, { duration: 800 });
+    toolbarScale.value = withSpring(1, { damping: 12 });
+  }, [headerOpacity, headerTranslateY, contentOpacity, toolbarScale]);
+  
   const date = new Date(params.date?.toString() || displayEmail.date.$date);
   const formattedDate = date.toLocaleDateString(undefined, {
     weekday: 'long',
@@ -90,7 +120,50 @@ export default function EmailDetailScreen() {
   const match = displayEmail.sender.match(emailRegex);
   const senderEmail = match ? match[1] : displayEmail.sender;
 
+  // Enhanced action handlers with feedback
+  const showActionFeedback = (message: string) => {
+    setActionFeedback(message);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => setActionFeedback(''), 2000);
+  };
+
+  const handleCopyContent = async () => {
+    try {
+      const emailContent = `From: ${displayEmail.sender}
+To: ${displayEmail.receiver}
+Subject: ${displayEmail.subject}
+Date: ${formattedDate}
+
+${displayEmail.message}`;
+      
+      await Clipboard.setStringAsync(emailContent);
+      showActionFeedback('📋 Email copied to clipboard');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to copy email content');
+    }
+  };
+
+  const handleSaveLocally = async () => {
+    try {
+      const emailContent = `From: ${displayEmail.sender}
+To: ${displayEmail.receiver}  
+Subject: ${displayEmail.subject}
+Date: ${formattedDate}
+
+${displayEmail.message}`;
+      
+      const fileName = `email_${displayEmail.id}_${Date.now()}.txt`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      
+      await FileSystem.writeAsStringAsync(fileUri, emailContent);
+      showActionFeedback('💾 Email saved successfully');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save email locally');
+    }
+  };
+
   const handleDelete = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       'Delete Email',
       'Are you sure you want to delete this email?',
@@ -100,8 +173,26 @@ export default function EmailDetailScreen() {
           text: 'Delete', 
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Email deleted', 'The email has been deleted.');
-            goBack();
+            showActionFeedback('🗑️ Email deleted');
+            setTimeout(() => goBack(), 1500);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleReportSpam = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Report Spam',
+      'Report this email as spam?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Report', 
+          style: 'destructive',
+          onPress: () => {
+            showActionFeedback('🚩 Email reported as spam');
           }
         }
       ]
@@ -109,18 +200,7 @@ export default function EmailDetailScreen() {
   };
 
   const handleShare = async () => {
-    try {
-      await Clipboard.setStringAsync(`
-From: ${displayEmail.sender}
-Subject: ${displayEmail.subject}
-Date: ${formattedDate}
-
-${displayEmail.message}
-      `);
-      Alert.alert('Copied to clipboard', 'Email content copied to clipboard');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to copy email content');
-    }
+    await handleCopyContent();
   };
 
   const goBack = () => {
@@ -131,6 +211,20 @@ ${displayEmail.message}
       router.replace('/(drawer)');
     }
   };
+
+  // Animated styles
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
+
+  const toolbarAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: toolbarScale.value }],
+  }));
 
   return (
     <ThemedView style={styles.container}>
@@ -146,83 +240,114 @@ ${displayEmail.message}
       <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.subjectContainer}>
-          <IconSymbol name="envelope" size={18} color={textColor} style={styles.subjectIcon} />
-          <ThemedText style={styles.subject}>
-            {displayEmail.subject || '(No subject)'}
-          </ThemedText>
-        </View>
+        {/* Action Feedback */}
+        {actionFeedback && (
+          <Animated.View 
+            style={[styles.feedbackContainer, { backgroundColor: accentColor }]}
+            entering={FadeInDown.duration(300)}
+            exiting={FadeInUp.duration(300)}
+          >
+            <ThemedText style={styles.feedbackText}>{actionFeedback}</ThemedText>
+          </Animated.View>
+        )}
 
-        <View style={styles.senderContainer}>
-          <View style={[styles.avatar, { backgroundColor: accentColor }]}>
-            <ThemedText style={styles.avatarText}>{senderInitial}</ThemedText>
-          </View>
-          
-          <View style={styles.senderInfo}>
-            <View style={styles.senderNameRow}>
-              <ThemedText style={styles.senderName}>{senderName}</ThemedText>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  { opacity: pressed ? 0.7 : 1 }
-                ]}
-                onPress={handleDelete}
-              >
-                <IconSymbol name="trash" size={18} color={textColor} />
-              </Pressable>
+        {/* Gmail-style Header */}
+        <Animated.View style={[styles.emailHeader, headerAnimatedStyle]}>
+          <Animated.View 
+            style={styles.subjectContainer}
+            entering={SlideInRight.delay(200).duration(600)}
+          >
+            <ThemedText style={styles.subject}>
+              {displayEmail.subject || '(No subject)'}
+            </ThemedText>
+          </Animated.View>
+
+          <Animated.View 
+            style={styles.senderContainer}
+            entering={SlideInRight.delay(400).duration(600)}
+          >
+            <View style={[styles.avatar, { backgroundColor: accentColor }]}>
+              <ThemedText style={styles.avatarText}>{senderInitial}</ThemedText>
             </View>
-            <ThemedText style={styles.senderEmail} numberOfLines={1}>{senderEmail}</ThemedText>
-            <ThemedText style={styles.date}>{formattedDate}</ThemedText>
-          </View>
-        </View>
+            
+            <View style={styles.senderInfo}>
+              <View style={styles.senderNameRow}>
+                <ThemedText style={styles.senderName}>{senderName}</ThemedText>
+                <ThemedText style={styles.dateShort}>{date.toLocaleDateString()}</ThemedText>
+              </View>
+              <ThemedText style={styles.senderEmail} numberOfLines={1}>{senderEmail}</ThemedText>
+              <ThemedText style={styles.recipientText}>to {displayEmail.receiver}</ThemedText>
+            </View>
+          </Animated.View>
+        </Animated.View>
         
-        {/* Details button */}
-        <Pressable
+        {/* Enhanced Collapsible Header Info */}
+        <AnimatedPressable
           style={({ pressed }) => [
-            styles.detailsButton,
+            styles.detailsToggle,
             { 
               borderColor,
-              opacity: pressed ? 0.7 : 1,
-              backgroundColor: pressed ? `${accentColor}10` : 'transparent',
+              backgroundColor: pressed ? `${accentColor}15` : 'transparent',
             }
           ]}
-          onPress={() => setShowDetails(!showDetails)}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setShowDetails(!showDetails);
+          }}
         >
-          <ThemedText style={styles.detailsText}>
-            {showDetails ? 'Hide Details' : 'Show Details'}
-          </ThemedText>
+          <View style={styles.detailsToggleContent}>
+            <IconSymbol 
+              name="info.circle" 
+              size={16} 
+              color={mutedColor} 
+              style={styles.detailsIcon}
+            />
+            <ThemedText style={[styles.detailsText, { color: mutedColor }]}>
+              {showDetails ? 'Hide headers' : 'Show headers'}
+            </ThemedText>
+          </View>
           <IconSymbol 
             name={showDetails ? 'chevron.up' : 'chevron.down'} 
-            size={16} 
-            color={textColor} 
+            size={14} 
+            color={mutedColor} 
           />
-        </Pressable>
+        </AnimatedPressable>
         
-        {/* Additional details when expanded */}
+        {/* Detailed headers when expanded */}
         {showDetails && (
-          <View style={[styles.details, { borderColor }]}>
+          <Animated.View 
+            style={[styles.detailsContainer, { borderColor }]}
+            entering={FadeInDown.duration(300)}
+          >
             <View style={styles.detailRow}>
               <ThemedText style={styles.detailLabel}>From:</ThemedText>
-              <ThemedText style={styles.detailValue} numberOfLines={1}>{displayEmail.sender}</ThemedText>
+              <ThemedText style={styles.detailValue} numberOfLines={2}>{displayEmail.sender}</ThemedText>
             </View>
             <View style={styles.detailRow}>
               <ThemedText style={styles.detailLabel}>To:</ThemedText>
-              <ThemedText style={styles.detailValue} numberOfLines={1}>{displayEmail.receiver}</ThemedText>
+              <ThemedText style={styles.detailValue} numberOfLines={2}>{displayEmail.receiver}</ThemedText>
             </View>
             <View style={styles.detailRow}>
               <ThemedText style={styles.detailLabel}>Date:</ThemedText>
               <ThemedText style={styles.detailValue}>{formattedDate}</ThemedText>
             </View>
-          </View>
+          </Animated.View>
         )}
         
-        {/* Email content */}
-        <EmailContent htmlContent={displayEmail.message} />
+
+        
+        {/* Email content with animation */}
+        <Animated.View style={contentAnimatedStyle}>
+          <EmailContent htmlContent={displayEmail.message} />
+        </Animated.View>
         
         {/* Email attachments */}
         {displayEmail.attachments && displayEmail.attachments.length > 0 && (
-          <EmailAttachments attachments={displayEmail.attachments} />
+          <Animated.View entering={FadeInDown.delay(800).duration(400)}>
+            <EmailAttachments attachments={displayEmail.attachments} />
+          </Animated.View>
         )}
       </ScrollView>
     </ThemedView>
@@ -240,113 +365,129 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 60,
   },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 60,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 8,
-  },
-  backButton: {
-    padding: 8,
+  feedbackContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    right: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  toolbarActions: {
-    flexDirection: 'row',
-    gap: 12,
+  feedbackText: {
+    color: 'white',
+    fontWeight: '600',
+    textAlign: 'center',
+    fontSize: 14,
   },
-  toolbarButton: {
-    padding: 8,
-    borderRadius: 8,
+  emailHeader: {
+    marginBottom: 20,
+    marginTop: 8,
   },
   subjectContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 16,
   },
-  subjectIcon: {
-    marginRight: 10,
-  },
   subject: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    flex: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 32,
   },
   senderContainer: {
     flexDirection: 'row',
-    marginBottom: 20,
+    alignItems: 'flex-start',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   avatarText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: 'white',
   },
   senderInfo: {
     flex: 1,
+    paddingTop: 2,
   },
   senderNameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 2,
   },
   senderName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
+    flex: 1,
+  },
+  dateShort: {
+    fontSize: 14,
+    opacity: 0.6,
+    fontWeight: '500',
   },
   senderEmail: {
     fontSize: 14,
     opacity: 0.7,
-    marginTop: 2,
+    marginBottom: 2,
   },
-  date: {
-    fontSize: 12,
-    opacity: 0.5,
-    marginTop: 4,
+  recipientText: {
+    fontSize: 14,
+    opacity: 0.6,
+    fontStyle: 'italic',
   },
-  actionButton: {
-    padding: 6,
-    borderRadius: 20,
-  },
-  detailsButton: {
+  detailsToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 16,
+  },
+  detailsToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailsIcon: {
+    marginRight: 8,
   },
   detailsText: {
     fontSize: 14,
     fontWeight: '500',
   },
-  details: {
+  detailsContainer: {
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 10,
+    padding: 16,
     marginBottom: 16,
+    backgroundColor: 'rgba(128, 128, 128, 0.05)',
   },
   detailRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 10,
+    alignItems: 'flex-start',
   },
   detailLabel: {
-    width: 50,
+    width: 80,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    opacity: 0.8,
   },
   detailValue: {
     flex: 1,
     fontSize: 14,
+    lineHeight: 20,
   },
+
 }); 

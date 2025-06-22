@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 48,
-    borderRadius: 8,
+    minHeight: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   buttonText: {
@@ -187,8 +187,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 48,
-    borderRadius: 8,
+    minHeight: 44,
+    borderRadius: 22,
     paddingHorizontal: 16,
   },
   saveButtonText: {

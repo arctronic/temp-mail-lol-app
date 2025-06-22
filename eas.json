@@ -23,6 +23,18 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "local-aab": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "distribution": "internal"
+    },
+    "local-apk": {
+      "android": {
+        "buildType": "apk"
+      },
+      "distribution": "internal"
     }
   },
   "submit": {

@@ -14,13 +14,26 @@ export const FloatingInboxButton = ({ currentRoute }: FloatingInboxButtonProps) 
   const router = useRouter();
   const tintColor = useThemeColor({}, 'tint');
   
-  // Don't show on the inbox or drawer pages
-  if (currentRoute === '/(drawer)' || currentRoute === '/(drawer)/index') {
+  // Don't show on the inbox or drawer home pages
+  // More comprehensive route checking for inbox pages
+  const isOnInboxPage = 
+    currentRoute === '/(drawer)' || 
+    currentRoute === '/(drawer)/index' ||
+    currentRoute === '/index' ||
+    currentRoute === '/' ||
+    currentRoute === '' ||
+    !currentRoute || // Default route
+    (currentRoute.includes('/(drawer)') && !currentRoute.includes('lookup') && !currentRoute.includes('about') && !currentRoute.includes('settings'));
+    
+  // Debug: Log the current route to understand the issue
+  console.log('FloatingInboxButton - Current route:', currentRoute, 'Should hide:', isOnInboxPage);
+    
+  if (isOnInboxPage) {
     return null;
   }
   
   // Change text and behavior based on the current route
-  const isOnLookupPage = currentRoute === '/lookup';
+  const isOnLookupPage = currentRoute?.includes('lookup');
   
   const handleNavigateToInbox = () => {
     // Trigger haptic feedback

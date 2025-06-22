@@ -2,19 +2,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import { useAds } from './AdContext';
 import { Email } from './EmailContext';
 import { useNotificationSettings } from './NotificationContext';
 
-// Optional notifications import - will work in development builds but not Expo Go
+// Configure notifications only if available
 let Notifications: any = null;
-(async () => {
-  try {
-    Notifications = await import('expo-notifications');
-  } catch (error) {
-    console.log('expo-notifications not available in Expo Go - notifications disabled');
+let notificationsAvailable = false;
+
+try {
+  Notifications = require('expo-notifications');
+  notificationsAvailable = true;
+  
+  // Only configure notifications if not in Expo Go
+  if (!__DEV__ || Platform.OS !== 'android') {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
   }
-})();
+} catch (error) {
+  console.log('expo-notifications not available - notifications disabled');
+  notificationsAvailable = false;
+}
 
 interface LookupEmail {
   address: string;
@@ -46,36 +60,102 @@ const LookupContext = createContext<LookupContextType | undefined>(undefined);
 const API_BASE_URL = Constants.expoConfig?.extra?.apiBaseUrl || 'https://api.example.com';
 
 // Storage keys
-const STORAGE_KEY_LOOKUP_EMAILS = 'lookup_emails';
-const STORAGE_KEY_EMAIL_MESSAGES_PREFIX = 'lookup_messages_';
-const STORAGE_KEY_READ_STATUS_PREFIX = 'read_status_';
+const STORAGE_KEY_LOOKUP_EMAILS = 'temp_mail_lookup_emails';
+const STORAGE_KEY_EMAIL_MESSAGES_PREFIX = 'temp_mail_messages_';
+const STORAGE_KEY_READ_STATUS_PREFIX = 'temp_mail_read_status_';
 
-// Configure notifications only if available
-if (Notifications) {
-  try {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-  } catch (error) {
-    console.log('Failed to configure notifications:', error);
-  }
-}
+// Constants for data management
+const MAX_MESSAGES_PER_EMAIL = 50; // Limit to prevent storage overflow
+const MAX_MESSAGE_CONTENT_LENGTH = 10000; // Limit individual message size
+const MESSAGE_CLEANUP_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
 // Generate a unique ID for messages to avoid duplicates
 const generateMessageUniqueId = (email: Email) => {
   return `${email.sender}_${email.receiver}_${email.date.$date}`;
 };
 
+// Helper function to truncate message content
+const truncateMessageContent = (message: string): string => {
+  if (message.length > MAX_MESSAGE_CONTENT_LENGTH) {
+    return message.substring(0, MAX_MESSAGE_CONTENT_LENGTH) + '... [Message truncated for storage efficiency]';
+  }
+  return message;
+};
+
+// Helper function to clean old messages
+const cleanupOldMessages = (messages: Email[]): Email[] => {
+  // Sort by date (newest first) and limit to MAX_MESSAGES_PER_EMAIL
+  const sortedMessages = messages
+    .sort((a, b) => {
+      const dateA = new Date(typeof a.date === 'string' ? a.date : a.date.$date);
+      const dateB = new Date(typeof b.date === 'string' ? b.date : b.date.$date);
+      return dateB.getTime() - dateA.getTime();
+    })
+    .slice(0, MAX_MESSAGES_PER_EMAIL);
+
+  // Truncate message content to prevent storage overflow
+  return sortedMessages.map(message => ({
+    ...message,
+    message: truncateMessageContent(message.message)
+  }));
+};
+
+// Safe AsyncStorage operations with error handling
+const safeAsyncStorageSetItem = async (key: string, value: string): Promise<boolean> => {
+  try {
+    // Check if the data size is reasonable (< 1MB per item)
+    const dataSize = new Blob([value]).size;
+    if (dataSize > 1024 * 1024) { // 1MB limit
+      console.warn(`Data size for key ${key} is too large: ${dataSize} bytes. Skipping storage.`);
+      return false;
+    }
+    
+    await AsyncStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.error(`Failed to store data for key ${key}:`, error);
+    
+    // If storage failed due to size, try to clear some old data
+    if (error instanceof Error && error.message.includes('Row too big')) {
+      try {
+        // Try to clear old message data
+        const keys = await AsyncStorage.getAllKeys();
+        const messageKeys = keys.filter(k => k.startsWith(STORAGE_KEY_EMAIL_MESSAGES_PREFIX));
+        
+        // Remove oldest message stores
+        if (messageKeys.length > 5) {
+          const keysToRemove = messageKeys.slice(5);
+          await AsyncStorage.multiRemove(keysToRemove);
+          console.log(`Cleaned up ${keysToRemove.length} old message stores`);
+        }
+        
+        // Try storing again with cleaned data
+        await AsyncStorage.setItem(key, value);
+        return true;
+      } catch (cleanupError) {
+        console.error('Failed to clean up and retry storage:', cleanupError);
+        return false;
+      }
+    }
+    
+    return false;
+  }
+};
+
+const safeAsyncStorageGetItem = async (key: string): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch (error) {
+    console.error(`Failed to retrieve data for key ${key}:`, error);
+    return null;
+  }
+};
+
 export function LookupProvider({ children }: { children: React.ReactNode }) {
   const [lookupEmails, setLookupEmails] = useState<LookupEmailWithMessages[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const { notificationsEnabled } = useNotificationSettings();
+  const { showInterstitialAd, canShowAd, incrementAction } = useAds();
   
   // In-memory cache reference for faster access
   const memoryCache = useRef<Record<string, Email[]>>({});
@@ -92,7 +172,7 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
   // Request notification permissions on mount (only if notifications available)
   useEffect(() => {
     const requestPermissions = async () => {
-      if (Notifications) {
+      if (notificationsAvailable && Notifications && !(__DEV__ && Platform.OS === 'android')) {
         try {
           const { status } = await Notifications.requestPermissionsAsync();
           if (status !== 'granted') {
@@ -101,6 +181,8 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
           console.log('Failed to request notification permissions:', error);
         }
+      } else {
+        console.log('Skipping notification permissions in Expo Go development');
       }
     };
     requestPermissions();
@@ -111,7 +193,7 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     const loadLookupEmails = async () => {
       try {
         console.log('Loading lookup emails from storage...');
-        const storedEmails = await AsyncStorage.getItem(STORAGE_KEY_LOOKUP_EMAILS);
+        const storedEmails = await safeAsyncStorageGetItem(STORAGE_KEY_LOOKUP_EMAILS);
         
         if (storedEmails) {
           const parsedEmails: LookupEmail[] = JSON.parse(storedEmails);
@@ -122,13 +204,16 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
               const messagesKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email.address}`;
               const readStatusKey = `${STORAGE_KEY_READ_STATUS_PREFIX}${email.address}`;
               
-              const storedMessages = await AsyncStorage.getItem(messagesKey);
-              const storedReadStatus = await AsyncStorage.getItem(readStatusKey);
+              const storedMessages = await safeAsyncStorageGetItem(messagesKey);
+              const storedReadStatus = await safeAsyncStorageGetItem(readStatusKey);
               
-              const messages = storedMessages ? JSON.parse(storedMessages) : [];
+              let messages = storedMessages ? JSON.parse(storedMessages) : [];
               const readMessageIds = storedReadStatus ? new Set<string>(JSON.parse(storedReadStatus)) : new Set<string>();
               
-              // Cache the messages and read status in memory for faster access
+              // Clean up messages to prevent storage overflow
+              messages = cleanupOldMessages(messages);
+              
+              // Cache the cleaned messages and read status in memory for faster access
               memoryCache.current[email.address] = messages;
               readStatusCache.current[email.address] = readMessageIds;
               
@@ -157,6 +242,13 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
         setIsInitialized(true);
       } catch (error) {
         console.error('Error loading lookup emails:', error);
+        // Clear corrupted data and start fresh
+        try {
+          await AsyncStorage.multiRemove([STORAGE_KEY_LOOKUP_EMAILS]);
+          console.log('Cleared corrupted lookup data');
+        } catch (clearError) {
+          console.error('Failed to clear corrupted data:', clearError);
+        }
         setIsInitialized(true);
       }
     };
@@ -166,13 +258,19 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
 
   // Send notification for new emails (only if notifications available and enabled)
   const sendNewEmailNotification = useCallback(async (emailAddress: string, newMessages: Email[]) => {
-    if (!Notifications) {
+    if (!notificationsAvailable || !Notifications) {
       console.log('Notifications not available - skipping notification');
       return;
     }
     
     if (!notificationsEnabled) {
       console.log('Notifications disabled by user - skipping notification');
+      return;
+    }
+    
+    // Skip notifications in development with Expo Go
+    if (__DEV__ && Platform.OS === 'android') {
+      console.log('Skipping notifications in Expo Go development');
       return;
     }
     
@@ -296,9 +394,12 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
               const currentReadStatus = readStatusCache.current[lookupEmail.address] || new Set<string>();
               const unreadCount = combinedMessages.filter((m: Email) => !currentReadStatus.has(m.id)).length;
               
+              // Clean and limit messages before storage
+              const cleanedMessages = cleanupOldMessages(combinedMessages);
+              
               // Then update AsyncStorage in the background
               const messagesKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${lookupEmail.address}`;
-              await AsyncStorage.setItem(messagesKey, JSON.stringify(combinedMessages));
+              await safeAsyncStorageSetItem(messagesKey, JSON.stringify(cleanedMessages));
               
               // Send notification for new emails
               await sendNewEmailNotification(lookupEmail.address, uniqueNewMessages);
@@ -332,7 +433,7 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       );
       
       // Save the updated timestamps to AsyncStorage
-      await AsyncStorage.setItem(
+      await safeAsyncStorageSetItem(
         STORAGE_KEY_LOOKUP_EMAILS, 
         JSON.stringify(updatedEmails.map(({ messages, ...rest }) => rest))
       );
@@ -377,47 +478,36 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       if (lookupEmails.length >= 5) {
         Alert.alert(
           'Limit Reached',
-          'You can only save up to 5 emails in your lookup list. Please remove an existing email to add a new one.'
+          'You can only save up to 5 emails in your lookup list. Please remove an existing email to add a new one.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'Watch Ad for +5 More', 
+              onPress: async () => {
+                try {
+                  await showInterstitialAd();
+                  // Temporarily allow one more email
+                  await addEmailToLookupWithoutLimit(email);
+                } catch (error) {
+                  console.error('Failed to show ad:', error);
+                }
+              }
+            }
+          ]
         );
         return;
       }
       
-      const newLookupEmail: LookupEmailWithMessages = {
-        address: email,
-        addedAt: Date.now(),
-        lastFetchedAt: 0, // Set to 0 to ensure immediate fetch
-        messages: [],
-      };
+      // Increment lookup counter for ads
+      incrementAction('lookup');
       
-      // Initialize empty messages array in memory cache
-      memoryCache.current[email] = [];
+      // Show ad if conditions are met
+      if (canShowAd('lookup')) {
+        await showInterstitialAd();
+      }
       
-      const updatedLookupEmails = [...lookupEmails, newLookupEmail];
+      await addEmailToLookupWithoutLimit(email);
       
-      // Save to state
-      setLookupEmails(updatedLookupEmails);
-      
-      // Save to AsyncStorage (without messages to avoid duplication)
-      await AsyncStorage.setItem(
-        STORAGE_KEY_LOOKUP_EMAILS, 
-        JSON.stringify(updatedLookupEmails.map(({ messages, ...rest }) => rest))
-      );
-      
-      // Initialize empty messages array for this email
-      await AsyncStorage.setItem(
-        `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email}`,
-        JSON.stringify([])
-      );
-      
-      // Trigger immediate fetch for the new email
-      setTimeout(() => {
-        refetch();
-      }, 500);
-      
-      Alert.alert(
-        'Email Added',
-        'Email has been added to your lookup list. Checking for messages now...'
-      );
     } catch (error) {
       console.error('Error adding email to lookup:', error);
       Alert.alert(
@@ -425,6 +515,45 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
         'Failed to add email to lookup list. Please try again.'
       );
     }
+  };
+
+  const addEmailToLookupWithoutLimit = async (email: string) => {
+    const newLookupEmail: LookupEmailWithMessages = {
+      address: email,
+      addedAt: Date.now(),
+      lastFetchedAt: 0, // Set to 0 to ensure immediate fetch
+      messages: [],
+    };
+    
+    // Initialize empty messages array in memory cache
+    memoryCache.current[email] = [];
+    
+    const updatedLookupEmails = [...lookupEmails, newLookupEmail];
+    
+    // Save to state
+    setLookupEmails(updatedLookupEmails);
+    
+    // Save to AsyncStorage (without messages to avoid duplication)
+    await safeAsyncStorageSetItem(
+      STORAGE_KEY_LOOKUP_EMAILS, 
+      JSON.stringify(updatedLookupEmails.map(({ messages, ...rest }) => rest))
+    );
+    
+    // Initialize empty messages array for this email
+    await safeAsyncStorageSetItem(
+      `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email}`,
+      JSON.stringify([])
+    );
+    
+    // Trigger immediate fetch for the new email
+    setTimeout(() => {
+      refetch();
+    }, 500);
+    
+    Alert.alert(
+      'Email Added',
+      'Email has been added to your lookup list. Checking for messages now...'
+    );
   };
 
   const removeEmailFromLookup = async (email: string) => {
@@ -438,7 +567,7 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       delete memoryCache.current[email];
       
       // Update AsyncStorage
-      await AsyncStorage.setItem(
+      await safeAsyncStorageSetItem(
         STORAGE_KEY_LOOKUP_EMAILS, 
         JSON.stringify(updatedLookupEmails.map(({ messages, ...rest }) => rest))
       );
@@ -461,6 +590,14 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
 
   const refreshLookupEmails = async () => {
     try {
+      // Increment refresh counter for ads
+      incrementAction('refresh');
+      
+      // Show ad if conditions are met
+      if (canShowAd('refresh')) {
+        await showInterstitialAd();
+      }
+      
       // Force immediate refetch
       await refetch();
       
@@ -501,13 +638,14 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       // Save read status to AsyncStorage
       const readStatusKey = `${STORAGE_KEY_READ_STATUS_PREFIX}${emailAddress}`;
       const readMessageIds = Array.from(readStatusCache.current[emailAddress]);
-      await AsyncStorage.setItem(readStatusKey, JSON.stringify(readMessageIds));
+      await safeAsyncStorageSetItem(readStatusKey, JSON.stringify(readMessageIds));
       
       // Update messages in AsyncStorage with read status
       const messagesKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${emailAddress}`;
       const updatedEmail = updatedEmails.find(e => e.address === emailAddress);
       if (updatedEmail) {
-        await AsyncStorage.setItem(messagesKey, JSON.stringify(updatedEmail.messages));
+        const cleanedMessages = cleanupOldMessages(updatedEmail.messages);
+        await safeAsyncStorageSetItem(messagesKey, JSON.stringify(cleanedMessages));
       }
       
     } catch (error) {

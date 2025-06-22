@@ -1,10 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as FileSystem from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 interface Attachment {
   filename: string;
@@ -19,15 +20,25 @@ interface EmailAttachmentsProps {
   attachments: Attachment[];
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
   const borderColor = useThemeColor({}, 'border');
+  const mutedColor = useThemeColor({}, 'tabIconDefault');
   const [downloadingAttachments, setDownloadingAttachments] = useState<Record<string, boolean>>({});
+  const [expandedAttachments, setExpandedAttachments] = useState(false);
+
+  // Animation for expand/collapse
+  const attachmentsHeight = useSharedValue(0);
 
   const handleDownload = async (attachment: Attachment) => {
     const attachmentId = `${attachment.filename}-${Date.now()}`;
     setDownloadingAttachments(prev => ({ ...prev, [attachmentId]: true }));
+
+    // Haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
       const base64Data = attachment.data.$binary.base64;
@@ -38,15 +49,21 @@ export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
         encoding: FileSystem.EncodingType.Base64,
       });
 
+      // Success haptic
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
       // Show success message
       Alert.alert(
-        'Attachment Cached',
-        `${attachment.filename} has been downloaded to the app's cache. You can find downloaded files in your device's temp storage.`,
+        'Download Complete',
+        `${attachment.filename} has been downloaded to the app cache.`,
         [{ text: 'OK' }]
       );
 
     } catch (error) {
       console.error('Error downloading attachment:', error);
+      
+      // Error haptic
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       
       let errorMessage = 'Failed to download attachment.';
       if (error instanceof Error) {
@@ -68,6 +85,38 @@ export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
     }
   };
 
+  // Helper function to get file icon based on extension
+  const getFileIcon = (filename: string): string => {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    const iconMap: Record<string, string> = {
+      'pdf': 'doc.richtext',
+      'jpg': 'photo',
+      'jpeg': 'photo', 
+      'png': 'photo',
+      'gif': 'photo',
+      'doc': 'doc.text',
+      'docx': 'doc.text',
+      'xls': 'tablecells',
+      'xlsx': 'tablecells',
+      'txt': 'doc.plaintext',
+      'zip': 'archivebox',
+      'rar': 'archivebox',
+      'mp3': 'music.note',
+      'mp4': 'video',
+      'mov': 'video',
+      'avi': 'video',
+    };
+    return iconMap[extension || ''] || 'doc';
+  };
+
+  // Helper function to get file size (estimate from base64)
+  const getFileSize = (base64: string): string => {
+    const sizeInBytes = (base64.length * 3) / 4;
+    if (sizeInBytes < 1024) return `${Math.round(sizeInBytes)} B`;
+    if (sizeInBytes < 1024 * 1024) return `${Math.round(sizeInBytes / 1024)} KB`;
+    return `${Math.round(sizeInBytes / (1024 * 1024))} MB`;
+  };
+
   // Helper function to get MIME type based on file extension
   const getMimeType = (filename: string): string => {
     const extension = filename.split('.').pop()?.toLowerCase();
@@ -84,73 +133,204 @@ export const EmailAttachments = ({ attachments }: EmailAttachmentsProps) => {
       'txt': 'text/plain',
       'zip': 'application/zip',
       'rar': 'application/x-rar-compressed',
+      'mp3': 'audio/mpeg',
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime',
+      'avi': 'video/x-msvideo',
     };
     return mimeTypes[extension || ''] || 'application/octet-stream';
   };
 
+  const toggleExpansion = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedAttachments(!expandedAttachments);
+  };
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: withSpring(1, { damping: 15 }) }],
+  }));
+
+  if (!attachments || attachments.length === 0) {
+    return null;
+  }
+
+  const displayedAttachments = expandedAttachments ? attachments : attachments.slice(0, 3);
+  const hasMoreAttachments = attachments.length > 3;
+
   return (
-    <ThemedView style={[styles.container, { borderColor }]}>
-      <ThemedText style={styles.title}>Attachments</ThemedText>
+    <Animated.View 
+      style={[styles.container, { borderColor }, animatedContainerStyle]}
+      entering={FadeInDown.duration(400)}
+    >
+      <View style={[styles.header, { borderBottomColor: borderColor }]}>
+        <View style={styles.headerContent}>
+          <IconSymbol name="paperclip" size={18} color={textColor} />
+          <ThemedText style={styles.title}>
+            {attachments.length} Attachment{attachments.length !== 1 ? 's' : ''}
+          </ThemedText>
+        </View>
+        {hasMoreAttachments && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.expandButton,
+              { opacity: pressed ? 0.7 : 1 }
+            ]}
+            onPress={toggleExpansion}
+          >
+            <ThemedText style={[styles.expandText, { color: tintColor }]}>
+              {expandedAttachments ? 'Show less' : `+${attachments.length - 3} more`}
+            </ThemedText>
+            <IconSymbol 
+              name={expandedAttachments ? 'chevron.up' : 'chevron.down'} 
+              size={14} 
+              color={tintColor} 
+            />
+          </Pressable>
+        )}
+      </View>
+
       <View style={styles.attachmentList}>
-        {attachments.map((attachment, index) => {
+        {displayedAttachments.map((attachment, index) => {
           const attachmentId = `${attachment.filename}-${index}`;
           const isDownloading = downloadingAttachments[attachmentId];
+          const fileIcon = getFileIcon(attachment.filename);
+          const fileSize = getFileSize(attachment.data.$binary.base64);
 
           return (
-            <Pressable
+            <AnimatedPressable
               key={index}
               style={({ pressed }) => [
                 styles.attachmentItem,
                 { 
-                  opacity: pressed ? 0.7 : 1,
+                  opacity: pressed ? 0.8 : 1,
+                  backgroundColor: pressed ? `${tintColor}10` : 'transparent',
                   borderBottomColor: borderColor,
-                  borderBottomWidth: index < attachments.length - 1 ? 1 : 0,
+                  borderBottomWidth: index < displayedAttachments.length - 1 ? StyleSheet.hairlineWidth : 0,
                 }
               ]}
               onPress={() => !isDownloading && handleDownload(attachment)}
               disabled={isDownloading}
+              entering={FadeInDown.delay(index * 100).duration(300)}
             >
-              <IconSymbol name="doc" size={20} color={textColor} />
-              <ThemedText style={styles.filename} numberOfLines={1}>
-                {attachment.filename}
-              </ThemedText>
-              {isDownloading ? (
-                <ActivityIndicator size="small" color={tintColor} />
-              ) : (
-                <IconSymbol name="arrow.down.circle" size={20} color={textColor} />
-              )}
-            </Pressable>
+              <View style={[styles.fileIconContainer, { backgroundColor: `${tintColor}15` }]}>
+                <IconSymbol name={fileIcon} size={20} color={tintColor} />
+              </View>
+              
+              <View style={styles.fileInfo}>
+                <ThemedText style={styles.filename} numberOfLines={1}>
+                  {attachment.filename}
+                </ThemedText>
+                <ThemedText style={[styles.fileSize, { color: mutedColor }]}>
+                  {fileSize} • {getMimeType(attachment.filename).split('/')[0]}
+                </ThemedText>
+              </View>
+              
+              <View style={styles.actionContainer}>
+                {isDownloading ? (
+                  <View style={styles.downloadingContainer}>
+                    <ActivityIndicator size="small" color={tintColor} />
+                    <ThemedText style={[styles.downloadingText, { color: tintColor }]}>
+                      Downloading...
+                    </ThemedText>
+                  </View>
+                ) : (
+                  <View style={[styles.downloadButton, { backgroundColor: `${tintColor}20` }]}>
+                    <IconSymbol name="arrow.down.circle.fill" size={24} color={tintColor} />
+                  </View>
+                )}
+              </View>
+            </AnimatedPressable>
           );
         })}
       </View>
-    </ThemedView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
+    backgroundColor: 'rgba(128, 128, 128, 0.03)',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   title: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  expandText: {
+    fontSize: 14,
     fontWeight: '500',
-    padding: 12,
-    borderBottomWidth: 1,
   },
   attachmentList: {
-    gap: 0,
+    paddingHorizontal: 0,
   },
   attachmentItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  fileIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fileInfo: {
+    flex: 1,
+    gap: 2,
   },
   filename: {
-    flex: 1,
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  fileSize: {
+    fontSize: 12,
+    fontWeight: '400',
+  },
+  actionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  downloadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  downloadingText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  downloadButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 }); 
