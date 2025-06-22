@@ -162,12 +162,12 @@ export function InboxChipList({
       <FlatList
         data={lookupEmails}
         renderItem={renderInboxChip}
-        keyExtractor={(item) => item.address}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipList}
+        keyExtractor={(item, index) => `inbox-${item.address}-${item.addedAt}-${index}`}
+        contentContainerStyle={styles.chipListContent}
+        ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
         ListFooterComponent={renderFooter}
-        ItemSeparatorComponent={() => <View style={styles.chipSeparator} />}
       />
     </ThemedView>
   );
@@ -233,5 +233,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 8,
+  },
+  chipListContent: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
   },
 }); 

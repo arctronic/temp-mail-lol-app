@@ -217,11 +217,11 @@ export default function LookupScreen() {
         <ThemedText style={styles.domainText}>{domainGroup.domain}</ThemedText>
       </ThemedView>
       
-      {domainGroup.emails.map((email) => {
+      {domainGroup.emails.map((email, emailIndex) => {
         const isExpanded = expandedEmail === email.address;
         
         return (
-          <ThemedView key={`${email.address}-${email.addedAt}`} style={[styles.emailCard, { borderColor }]}>
+          <ThemedView key={`domain-${domainGroup.domain}-email-${email.address}-${email.addedAt}`} style={[styles.emailCard, { borderColor }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.emailHeader,
@@ -266,9 +266,9 @@ export default function LookupScreen() {
                     </ThemedText>
                   </ThemedView>
                 ) : (
-                  email.messages.map((message: Email, index: number) => (
+                  email.messages.map((message: Email, messageIndex: number) => (
                     <Pressable
-                      key={`${email.address}-${message.id}-${index}`}
+                      key={`message-${email.address}-${message.id || messageIndex}-${messageIndex}-${typeof message.date === 'string' ? message.date : message.date.$date}`}
                       style={({ pressed }) => [
                         styles.messageItem,
                         { 
@@ -397,7 +397,7 @@ export default function LookupScreen() {
           <FlashList
             data={emailsByDomain}
             renderItem={renderEmailItem}
-            keyExtractor={(item) => item.domain}
+            keyExtractor={(item, index) => `domain-${item.domain}-${index}-${item.emails.length}`}
             estimatedItemSize={120}
             contentContainerStyle={styles.listContent}
             onScroll={handleScroll}

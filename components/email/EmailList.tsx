@@ -665,7 +665,7 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
         data={processedEmails}
         renderItem={renderEmailItem}
         estimatedItemSize={120}
-        keyExtractor={(item) => item.id?.toString()}
+        keyExtractor={(item, index) => item.id?.toString() || `email-${index}-${item.sender}-${typeof item.date === 'string' ? item.date : item.date.$date}`}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyList}
         ListFooterComponent={renderLoadingMoreIndicator}
