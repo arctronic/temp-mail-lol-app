@@ -6,15 +6,16 @@ import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
@@ -22,6 +23,11 @@ const { width: screenWidth } = Dimensions.get('window');
 
 // Default reload interval (in seconds)
 const DEFAULT_RELOAD_INTERVAL = 60;
+
+// Helper function to get favicon URL
+const getFaviconUrl = (domain: string) => {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+};
 
 interface EmailListProps {
   onViewEmail?: (email: Email) => void;
@@ -52,6 +58,12 @@ const EmailCard = React.memo(({
   isUnread?: boolean;
 }) => {
   const swipeableRef = useRef<Swipeable>(null);
+  const [faviconError, setFaviconError] = useState(false);
+
+  // Reset favicon error when email changes
+  useEffect(() => {
+    setFaviconError(false);
+  }, [email.sender]);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -59,22 +71,21 @@ const EmailCard = React.memo(({
     const isToday = date.toDateString() === now.toDateString();
     const isYesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toDateString() === date.toDateString();
     
+    // Get time string for all cases
+    const timeStr = date.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    
     if (isToday) {
-      return date.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
-      });
+      return `Today\n${timeStr}`;
     } else if (isYesterday) {
-      return 'Yesterday';
+      return `Yesterday\n${timeStr}`;
     } else {
-      // For older emails, show both date and time
+      // For older emails, show date and time
       const dateStr = date.toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
-      });
-      const timeStr = date.toLocaleTimeString(undefined, {
-        hour: 'numeric',
-        minute: '2-digit',
       });
       return `${dateStr}\n${timeStr}`;
     }
@@ -96,6 +107,21 @@ const EmailCard = React.memo(({
   const getSenderEmail = (sender: string) => {
     const match = sender.match(/<(.+)>/);
     return match ? match[1] : sender;
+  };
+
+  const getSenderDomain = (sender: string) => {
+    const email = getSenderEmail(sender);
+    const domain = email.split('@')[1];
+    if (!domain) return '';
+    
+    // Extract main domain by taking the last two parts (domain.tld)
+    // This handles cases like mail.facebook.com -> facebook.com
+    const domainParts = domain.split('.');
+    if (domainParts.length >= 2) {
+      // Take the last two parts (e.g., facebook.com from mail.facebook.com)
+      return domainParts.slice(-2).join('.');
+    }
+    return domain;
   };
 
   // Swipe Action Components
@@ -196,10 +222,19 @@ const EmailCard = React.memo(({
         )}
 
         {/* Sender avatar/initial */}
-        <View style={[styles.senderAvatar, { backgroundColor: accentColor }]}>
-          <Text style={styles.senderInitial}>
-            {getSenderName(email.sender).charAt(0).toUpperCase()}
-          </Text>
+        <View style={[styles.senderAvatar, { backgroundColor: faviconError ? accentColor : 'transparent' }]}>
+          {!faviconError ? (
+            <Image
+              source={{ uri: getFaviconUrl(getSenderDomain(email.sender)) }}
+              style={styles.faviconImage}
+              onError={() => setFaviconError(true)}
+              onLoad={() => setFaviconError(false)}
+            />
+          ) : (
+            <Text style={[styles.senderInitial, { color: '#fff' }]}>
+              {getSenderName(email.sender).charAt(0).toUpperCase()}
+            </Text>
+          )}
         </View>
 
         {/* Email content */}
@@ -726,7 +761,7 @@ const styles = StyleSheet.create({
   // Gmail-style email card styles
   emailCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginVertical: 4,
@@ -767,9 +802,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  faviconImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+  },
   emailContent: {
     flex: 1,
     gap: 4,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
   },
   emailHeader: {
     flexDirection: 'row',
@@ -783,9 +825,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   timeText: {
-    fontSize: 13,
+    fontSize: 12,
     opacity: 0.8,
     fontWeight: '500',
+    textAlign: 'right',
+    lineHeight: 16,
+    minWidth: 60,
   },
   subjectText: {
     fontSize: 14,
