@@ -1,29 +1,49 @@
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, LayoutAnimation, NativeScrollEvent, NativeSyntheticEvent, Pressable, StyleSheet } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { IconSymbol } from '../../components/ui/IconSymbol';
 import { Email, useEmail } from '../../contexts/EmailContext';
-import { useLookup } from '../../contexts/LookupContext';
+import { LookupEmailWithMessages, useLookup } from '../../contexts/LookupContext';
 import { useThemeColor } from '../../hooks/useThemeColor';
+// EPIC 4 imports
+import { AddInboxModal } from '../../components/ui/AddInboxModal';
+import { AnimatedFAB } from '../../components/ui/AnimatedFAB';
+import { CustomSnackbar } from '../../components/ui/CustomSnackbar';
+import { InboxChipList } from '../../components/ui/InboxChipList';
+import { useSnackbar } from '../../hooks/useSnackbar';
 
 export default function LookupScreen() {
   const { 
     lookupEmails, 
-    addEmailToLookup, 
+    addEmailToLookup,
+    addEmailToLookupWithLimit,
     removeEmailFromLookup, 
     refreshLookupEmails, 
     markEmailAsRead,
     getUnreadCount,
     getTotalUnreadCount,
+    canAddInbox,
+    undoRemoveInbox,
+    maxInboxes,
     isLoading 
   } = useLookup();
   const { generatedEmail } = useEmail();
   const router = useRouter();
+  
+  // EPIC 4 State
+  const [selectedInbox, setSelectedInbox] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [fabVisible, setFabVisible] = useState(true);
   const [expandedEmail, setExpandedEmail] = useState<string | null>(null);
+  const [recentlyRemovedInbox, setRecentlyRemovedInbox] = useState<LookupEmailWithMessages | null>(null);
+  const { snackbar, showSuccess, showWarning, showError, hideSnackbar } = useSnackbar();
+  
+  const scrollOffsetY = useRef(0);
+  const scrollDirection = useRef<'up' | 'down'>('up');
   
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -38,14 +58,20 @@ export default function LookupScreen() {
     return new Date(dateStr).toLocaleString();
   }, []);
   
+  // Filter emails based on selected inbox
+  const filteredEmails = useMemo(() => {
+    if (!selectedInbox) return lookupEmails;
+    return lookupEmails.filter(email => email.address === selectedInbox);
+  }, [lookupEmails, selectedInbox]);
+  
   // Group emails by domain for better organization
   const emailsByDomain = useMemo(() => {
-    const domains = lookupEmails.reduce((acc, email) => {
+    const domains = filteredEmails.reduce((acc, email) => {
       const domain = email.address.split('@')[1];
       if (!acc[domain]) acc[domain] = [];
       acc[domain].push(email);
       return acc;
-    }, {} as Record<string, typeof lookupEmails>);
+    }, {} as Record<string, typeof filteredEmails>);
     
     return Object.entries(domains)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -53,25 +79,89 @@ export default function LookupScreen() {
         domain,
         emails: emails.sort((a, b) => b.addedAt - a.addedAt),
       }));
-  }, [lookupEmails]);
-  
-  const handleAddCurrentEmail = useCallback(async () => {
-    if (generatedEmail) {
-      await addEmailToLookup(generatedEmail);
-    }
-  }, [generatedEmail, addEmailToLookup]);
-  
-  const handleRemoveEmail = useCallback((address: string) => {
+  }, [filteredEmails]);
+
+  // EPIC 4 Handlers
+  const handleInboxSelect = useCallback((address: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedInbox(prev => prev === address ? null : address);
+  }, []);
+
+  const handleInboxRemove = useCallback((address: string) => {
+    const inboxToRemove = lookupEmails.find(email => email.address === address);
+    if (!inboxToRemove) return;
+
     Alert.alert(
-      'Remove Email',
-      `Are you sure you want to remove ${address} from your lookup list? All saved messages will be deleted.`,
+      'Remove Inbox',
+      `Remove ${address} from monitoring? All saved messages will be deleted.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => removeEmailFromLookup(address) },
+        { 
+          text: 'Remove', 
+          style: 'destructive', 
+          onPress: async () => {
+            try {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              
+              await removeEmailFromLookup(address);
+              setRecentlyRemovedInbox(inboxToRemove);
+              
+              // Clear selection if removed inbox was selected
+              if (selectedInbox === address) {
+                setSelectedInbox(null);
+              }
+              
+              // Show undo snackbar
+              showSuccess(`Removed ${address}`, {
+                label: 'Undo',
+                onPress: async () => {
+                  if (recentlyRemovedInbox) {
+                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                    await undoRemoveInbox(recentlyRemovedInbox);
+                    setRecentlyRemovedInbox(null);
+                  }
+                },
+              });
+            } catch (error) {
+              showError('Failed to remove inbox');
+            }
+          }
+        },
       ]
     );
-  }, [removeEmailFromLookup]);
-  
+  }, [lookupEmails, selectedInbox, removeEmailFromLookup, undoRemoveInbox, showSuccess, showError]);
+
+  const handleAddInbox = useCallback(() => {
+    if (!canAddInbox()) {
+      showWarning(`You can monitor up to ${maxInboxes} inboxes. Remove one to add another.`);
+      return;
+    }
+    setShowAddModal(true);
+  }, [canAddInbox, maxInboxes, showWarning]);
+
+  const handleAddInboxFromModal = useCallback(async (email: string) => {
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      
+      const result = await addEmailToLookupWithLimit(email);
+      if (result.success) {
+        showSuccess(`Added ${email} to monitoring`);
+        // Select the newly added inbox
+        setSelectedInbox(email);
+      } else {
+        showWarning(result.reason || 'Failed to add inbox');
+      }
+    } catch (error) {
+      showError('Failed to add inbox');
+    }
+  }, [addEmailToLookupWithLimit, showSuccess, showWarning, showError]);
+
+  const handleAddCurrentEmail = useCallback(async () => {
+    if (generatedEmail) {
+      await handleAddInboxFromModal(generatedEmail);
+    }
+  }, [generatedEmail, handleAddInboxFromModal]);
+
   const handleViewMessage = useCallback(async (email: Email) => {
     // Trigger haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -94,19 +184,28 @@ export default function LookupScreen() {
       }
     });
   }, [router, markEmailAsRead]);
-  
+
   const toggleExpand = useCallback((address: string) => {
-    console.log('Toggling expand for:', address, 'Current expanded:', expandedEmail);
-    setExpandedEmail(prev => {
-      const newValue = prev === address ? null : address;
-      console.log('Setting expanded to:', newValue);
-      return newValue;
-    });
-  }, [expandedEmail]);
-  
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedEmail(prev => prev === address ? null : address);
+  }, []);
+
+  // FAB scroll handling
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentOffset = event.nativeEvent.contentOffset.y;
+    const direction = currentOffset > scrollOffsetY.current ? 'down' : 'up';
+    
+    if (direction !== scrollDirection.current) {
+      scrollDirection.current = direction;
+      setFabVisible(direction === 'up' || currentOffset < 100);
+    }
+    
+    scrollOffsetY.current = currentOffset;
+  }, []);
+
   interface DomainGroup {
     domain: string;
-    emails: typeof lookupEmails;
+    emails: typeof filteredEmails;
   }
 
   const renderEmailItem = useCallback(({ item: domainGroup }: { item: DomainGroup }) => (
@@ -118,11 +217,11 @@ export default function LookupScreen() {
         <ThemedText style={styles.domainText}>{domainGroup.domain}</ThemedText>
       </ThemedView>
       
-      {domainGroup.emails.map((email) => {
+      {domainGroup.emails.map((email, emailIndex) => {
         const isExpanded = expandedEmail === email.address;
         
         return (
-          <ThemedView key={`${email.address}-${email.addedAt}`} style={[styles.emailCard, { borderColor }]}>
+          <ThemedView key={`domain-${domainGroup.domain}-email-${email.address}-${email.addedAt}`} style={[styles.emailCard, { borderColor }]}>
             <Pressable
               style={({ pressed }) => [
                 styles.emailHeader,
@@ -144,15 +243,6 @@ export default function LookupScreen() {
                 </ThemedText>
               </ThemedView>
               <ThemedView style={styles.emailActions}>
-                <Pressable 
-                  style={[styles.actionButton, { backgroundColor: 'rgba(255, 71, 71, 0.1)' }]}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleRemoveEmail(email.address);
-                  }}
-                >
-                  <IconSymbol name="trash" size={16} color={warningColor} />
-                </Pressable>
                 <ThemedView style={[styles.expandButton, { backgroundColor: `${textColor}10` }]}>
                   <IconSymbol 
                     name={isExpanded ? "chevron.up" : "chevron.down"} 
@@ -176,9 +266,9 @@ export default function LookupScreen() {
                     </ThemedText>
                   </ThemedView>
                 ) : (
-                  email.messages.map((message: Email, index: number) => (
+                  email.messages.map((message: Email, messageIndex: number) => (
                     <Pressable
-                      key={`${email.address}-${message.id}-${index}`}
+                      key={`message-${email.address}-${message.id || messageIndex}-${messageIndex}-${typeof message.date === 'string' ? message.date : message.date.$date}`}
                       style={({ pressed }) => [
                         styles.messageItem,
                         { 
@@ -220,14 +310,16 @@ export default function LookupScreen() {
         );
       })}
     </ThemedView>
-  ), [expandedEmail, toggleExpand, handleRemoveEmail, handleViewMessage, formatDate, tintColor, cardColor, borderColor, textColor, warningColor]);
+  ), [expandedEmail, toggleExpand, handleViewMessage, formatDate, tintColor, cardColor, borderColor, textColor, warningColor]);
   
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.titleContainer}>
           <ThemedView style={styles.titleWithBadge}>
-            <ThemedText style={styles.title}>My Lookup List</ThemedText>
+            <ThemedText style={styles.title}>
+              {selectedInbox ? `Monitoring: ${selectedInbox.split('@')[0]}...` : 'Inbox Monitoring'}
+            </ThemedText>
             {getTotalUnreadCount() > 0 && (
               <ThemedView style={[styles.totalUnreadBadge, { backgroundColor: tintColor }]}>
                 <ThemedText style={styles.totalUnreadText}>
@@ -248,71 +340,98 @@ export default function LookupScreen() {
                 styles.syncButton,
                 { 
                   opacity: pressed ? 0.7 : 1, 
-                  backgroundColor: tintColor 
+                  backgroundColor: `${tintColor}15`,
+                  borderColor: tintColor,
                 }
               ]}
               onPress={refreshLookupEmails}
-              disabled={isLoading}
             >
-              <IconSymbol 
-                name="arrow.clockwise" 
-                size={16} 
-                color="#fff" 
-                style={{ 
-                  transform: [{ rotate: isLoading ? '180deg' : '0deg' }] 
-                }} 
-              />
+              <IconSymbol name="arrow.clockwise" size={16} color={tintColor} />
             </Pressable>
           </ThemedView>
         </ThemedView>
       </ThemedView>
-      
-      <ThemedView style={[styles.addSection, { backgroundColor: `${textColor}03` }]}>
-        <ThemedText style={styles.addText}>
-          Add current email to lookup list ({lookupEmails.length}/5):
-        </ThemedText>
-        <Pressable
-          style={({ pressed }) => [
-            styles.addButton,
-            { 
-              opacity: lookupEmails.length >= 5 ? 0.5 : (pressed ? 0.7 : 1), 
-              backgroundColor: lookupEmails.length >= 5 ? '#999' : tintColor 
-            }
-          ]}
-          onPress={handleAddCurrentEmail}
-          disabled={lookupEmails.length >= 5}
-        >
-          <ThemedText style={[styles.addButtonText, { color: '#fff' }]} numberOfLines={1}>
-            {lookupEmails.length >= 5 ? 'Limit Reached (5/5)' : `Add ${generatedEmail}`}
-          </ThemedText>
-          <IconSymbol 
-            name={lookupEmails.length >= 5 ? "exclamationmark.triangle" : "plus"} 
-            size={16} 
-            color="#fff" 
-          />
-        </Pressable>
-      </ThemedView>
-      
-      {lookupEmails.length === 0 ? (
-        <ThemedView style={styles.emptyState}>
-          <IconSymbol name="envelope.badge" size={60} color={textColor} style={{ opacity: 0.3 }} />
-          <ThemedText style={styles.emptyTitle}>No Saved Emails</ThemedText>
-          <ThemedText style={styles.emptyText}>
-            Add temporary emails to your lookup list to automatically check for new messages every 30 seconds.
-          </ThemedText>
-        </ThemedView>
-      ) : (
-        <ThemedView style={styles.listContainer}>
+
+      {/* EPIC 4: Horizontal Chip List */}
+      <InboxChipList
+        lookupEmails={lookupEmails}
+        selectedInbox={selectedInbox}
+        onInboxSelect={handleInboxSelect}
+        onInboxRemove={handleInboxRemove}
+        onAddInbox={handleAddInbox}
+        maxInboxes={maxInboxes}
+      />
+
+      {/* Email List */}
+      <ThemedView style={styles.content}>
+        {emailsByDomain.length === 0 ? (
+          <ThemedView style={styles.emptyState}>
+            <IconSymbol name="tray" size={64} color={borderColor} />
+            <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
+              {lookupEmails.length === 0 ? 'No inboxes added yet' : 'No emails found'}
+            </ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: borderColor }]}>
+              {lookupEmails.length === 0 
+                ? 'Add an inbox to start monitoring emails'
+                : selectedInbox 
+                  ? 'No emails in this inbox yet'
+                  : 'Select an inbox or add a new one'
+              }
+            </ThemedText>
+            {lookupEmails.length === 0 && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.addFirstButton,
+                  {
+                    backgroundColor: pressed ? `${tintColor}90` : tintColor,
+                  },
+                ]}
+                onPress={handleAddInbox}
+              >
+                <IconSymbol name="plus" size={20} color="#ffffff" />
+                <ThemedText style={styles.addFirstButtonText}>Add First Inbox</ThemedText>
+              </Pressable>
+            )}
+          </ThemedView>
+        ) : (
           <FlashList
             data={emailsByDomain}
             renderItem={renderEmailItem}
-            estimatedItemSize={150}
+            keyExtractor={(item, index) => `domain-${item.domain}-${index}-${item.emails.length}`}
+            estimatedItemSize={120}
             contentContainerStyle={styles.listContent}
-            keyExtractor={(item, index) => `${item.domain}-${index}-${item.emails.length}`}
-            extraData={expandedEmail}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
           />
-        </ThemedView>
-      )}
+        )}
+      </ThemedView>
+
+      {/* EPIC 4: Animated FAB */}
+      <AnimatedFAB
+        visible={fabVisible}
+        onPress={handleAddInbox}
+        icon="plus"
+        disabled={!canAddInbox()}
+      />
+
+      {/* EPIC 4: Add Inbox Modal */}
+      <AddInboxModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAddInbox={handleAddInboxFromModal}
+        canAddInbox={canAddInbox()}
+        maxInboxes={maxInboxes}
+      />
+
+      {/* EPIC 4: Custom Snackbar */}
+      <CustomSnackbar
+        visible={snackbar.visible}
+        message={snackbar.message}
+        action={snackbar.action}
+        type={snackbar.type}
+        duration={snackbar.duration}
+        onDismiss={hideSnackbar}
+      />
     </ThemedView>
   );
 }
@@ -320,254 +439,200 @@ export default function LookupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
   header: {
-    marginBottom: 20,
+    padding: 16,
+    paddingBottom: 8,
   },
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
   },
   titleWithBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    flex: 1,
   },
   totalUnreadBadge: {
-    marginLeft: 8,
-    borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    borderRadius: 12,
     minWidth: 24,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   totalUnreadText: {
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#fff',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   loadingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 8,
+    gap: 8,
   },
   loadingText: {
     fontSize: 12,
-    marginLeft: 6,
     opacity: 0.7,
   },
-  addSection: {
-    marginBottom: 24,
-    padding: 16,
-    borderRadius: 12,
+  syncButton: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  addText: {
-    fontSize: 14,
-    marginBottom: 12,
-    opacity: 0.8,
-  },
-  addButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 10,
-    minHeight: 48,
-  },
-  addButtonText: {
-    fontWeight: '600',
-    flex: 1,
-    marginRight: 8,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyText: {
-    textAlign: 'center',
-    opacity: 0.6,
-    lineHeight: 22,
-    fontSize: 15,
-  },
-  listContainer: {
+  content: {
     flex: 1,
   },
   listContent: {
-    paddingBottom: 24,
+    padding: 16,
   },
   domainGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   domainHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    gap: 8,
+    marginBottom: 8,
   },
   domainBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
-    marginRight: 10,
+    justifyContent: 'center',
   },
   domainText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
+    opacity: 0.8,
   },
   emailCard: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 12,
+    marginBottom: 8,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
   },
   emailHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    minHeight: 80,
+    padding: 16,
   },
   emailMainInfo: {
     flex: 1,
-    marginRight: 16,
+    gap: 4,
   },
   emailAddress: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 6,
   },
   emailMeta: {
-    fontSize: 13,
+    fontSize: 12,
     opacity: 0.6,
-    marginBottom: 0,
+  },
+  unreadIndicator: {
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   emailActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  actionButton: {
-    padding: 12,
-    borderRadius: 22,
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   expandButton: {
-    padding: 12,
-    borderRadius: 22,
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
+    borderRadius: 6,
   },
   messagesList: {
     borderTopWidth: 1,
-    paddingVertical: 0,
   },
   noMessagesContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    padding: 32,
     alignItems: 'center',
-    padding: 40,
+    gap: 8,
   },
   noMessages: {
     fontSize: 16,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 6,
-    textAlign: 'center',
+    fontWeight: '500',
+    opacity: 0.6,
   },
   noMessagesSubtext: {
+    fontSize: 12,
+    opacity: 0.4,
     textAlign: 'center',
-    opacity: 0.6,
-    lineHeight: 20,
-    fontSize: 14,
   },
   messageItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: 72,
+    padding: 16,
+    borderBottomWidth: 1,
   },
   messageInfo: {
     flex: 1,
-    marginRight: 16,
+    gap: 4,
   },
   messageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   messageSender: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 14,
+    flex: 1,
   },
   messageSubject: {
-    fontSize: 14,
-    marginBottom: 6,
-    opacity: 0.8,
-    lineHeight: 18,
+    fontSize: 16,
+    fontWeight: '500',
   },
   messageDate: {
     fontSize: 12,
     opacity: 0.6,
   },
-  unreadMessage: {
-    // Background will be handled by theme-aware styling in the component
-  },
   unreadText: {
     fontWeight: 'bold',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  syncButton: {
-    padding: 12,
-    borderRadius: 22,
-    width: 44,
-    height: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unreadIndicator: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginLeft: 8,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+    gap: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  addFirstButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  addFirstButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

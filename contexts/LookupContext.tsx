@@ -12,7 +12,7 @@ interface LookupEmail {
   lastFetchedAt: number; // timestamp
 }
 
-interface LookupEmailWithMessages extends LookupEmail {
+export interface LookupEmailWithMessages extends LookupEmail {
   messages: Email[];
   unreadCount?: number;
 }
@@ -28,6 +28,11 @@ interface LookupContextType {
   getTotalUnreadCount: () => number;
   isLoading: boolean;
   error: Error | null;
+  // New methods for EPIC 4
+  canAddInbox: () => boolean;
+  addEmailToLookupWithLimit: (email: string) => Promise<{ success: boolean; reason?: string }>;
+  undoRemoveInbox: (email: LookupEmailWithMessages) => Promise<void>;
+  maxInboxes: number;
 }
 
 const LookupContext = createContext<LookupContextType | undefined>(undefined);
@@ -482,6 +487,50 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // New functions for EPIC 4
+  const canAddInbox = () => lookupEmails.length < 5;
+
+  const addEmailToLookupWithLimit = async (email: string) => {
+    if (canAddInbox()) {
+      await addEmailToLookupWithoutLimit(email);
+      return { success: true };
+    } else {
+      return { success: false, reason: 'Maximum inbox limit reached' };
+    }
+  };
+
+  const undoRemoveInbox = async (email: LookupEmailWithMessages): Promise<void> => {
+    try {
+      console.log(`Restoring ${email.address} to lookup list...`);
+      
+      // Restore to state
+      const updatedLookupEmails = [...lookupEmails, email];
+      setLookupEmails(updatedLookupEmails);
+
+      // Save to storage
+      const storageEmails = updatedLookupEmails.map(e => ({
+        address: e.address,
+        addedAt: e.addedAt,
+        lastFetchedAt: e.lastFetchedAt,
+      }));
+      await safeAsyncStorageSetItem(STORAGE_KEY_LOOKUP_EMAILS, JSON.stringify(storageEmails));
+
+      // Restore saved messages if they exist
+      const messageStorageKey = `${STORAGE_KEY_EMAIL_MESSAGES_PREFIX}${email.address}`;
+      if (email.messages && email.messages.length > 0) {
+        await saveEmailMessages(email.address, email.messages);
+      }
+
+      console.log(`✅ Restored ${email.address} to lookup list`);
+      showSuccessToast(`Restored ${email.address} to monitoring`);
+      
+    } catch (error) {
+      console.error('Failed to restore email to lookup:', error);
+      showErrorToast('Failed to restore email');
+      throw error;
+    }
+  };
+
   const value: LookupContextType = {
     lookupEmails,
     addEmailToLookup,
@@ -493,6 +542,10 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     getTotalUnreadCount,
     isLoading: isLoading || !isInitialized,
     error: error as Error | null,
+    canAddInbox,
+    addEmailToLookupWithLimit,
+    undoRemoveInbox,
+    maxInboxes: 5,
   };
 
   return (
