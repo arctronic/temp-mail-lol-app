@@ -46,7 +46,7 @@ const STORAGE_KEY_EMAIL_MESSAGES_PREFIX = 'temp_mail_messages_';
 const STORAGE_KEY_READ_STATUS_PREFIX = 'temp_mail_read_status_';
 
 // Constants for data management
-const MAX_MESSAGES_PER_EMAIL = 50; // Limit to prevent storage overflow
+const MAX_MESSAGES_PER_EMAIL = 2500; // Increased limit to handle more emails
 const MAX_MESSAGE_CONTENT_LENGTH = 10000; // Limit individual message size
 const MESSAGE_CLEANUP_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
@@ -84,9 +84,9 @@ const cleanupOldMessages = (messages: Email[]): Email[] => {
 // Safe AsyncStorage operations with error handling
 const safeAsyncStorageSetItem = async (key: string, value: string): Promise<boolean> => {
   try {
-    // Check if the data size is reasonable (< 1MB per item)
+    // Check if the data size is reasonable (< 5MB per item)
     const dataSize = new Blob([value]).size;
-    if (dataSize > 1024 * 1024) { // 1MB limit
+    if (dataSize > 5 * 1024 * 1024) { // 5MB limit
       console.warn(`Data size for key ${key} is too large: ${dataSize} bytes. Skipping storage.`);
       return false;
     }
@@ -103,9 +103,9 @@ const safeAsyncStorageSetItem = async (key: string, value: string): Promise<bool
         const keys = await AsyncStorage.getAllKeys();
         const messageKeys = keys.filter(k => k.startsWith(STORAGE_KEY_EMAIL_MESSAGES_PREFIX));
         
-        // Remove oldest message stores
-        if (messageKeys.length > 5) {
-          const keysToRemove = messageKeys.slice(5);
+        // Remove oldest message stores (keep more now)
+        if (messageKeys.length > 10) {
+          const keysToRemove = messageKeys.slice(10);
           await AsyncStorage.multiRemove(keysToRemove);
           console.log(`Cleaned up ${keysToRemove.length} old message stores`);
         }
@@ -246,7 +246,16 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
   const fetchEmailMessages = async (emailAddress: string): Promise<Email[]> => {
     try {
       console.log(`Fetching messages for ${emailAddress}...`);
-      const response = await fetch(`${API_BASE_URL}/messages/${emailAddress}`);
+      
+      // Use the same API endpoint as EmailContext
+      const response = await fetch(`${API_BASE_URL}/api/emails/${encodeURIComponent(emailAddress)}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        credentials: 'omit',
+      });
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -257,17 +266,59 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       }
       
       const data = await response.json();
-      const messages: Email[] = data.messages || [];
+      
+      // Handle empty response
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        console.log(`No messages found for ${emailAddress}`);
+        return [];
+      }
+      
+      // Process and normalize the email data
+      const messages: Email[] = data.map((email, idx) => ({
+        ...email,
+        id: email.id || email._id || `${email.subject || 'no-subject'}-${email.date || idx}`,
+        date: typeof email.date === 'string' ? { $date: email.date } : email.date,
+        created_at: typeof email.created_at === 'string' ? { $date: email.created_at } : email.created_at,
+        updated_at: typeof email.updated_at === 'string' ? { $date: email.updated_at } : email.updated_at,
+      }));
       
       console.log(`✅ Fetched ${messages.length} messages for ${emailAddress}`);
       
-      // Save to storage and memory cache
-      await saveEmailMessages(emailAddress, messages);
+      // Get existing messages to merge and avoid duplicates
+      const existingMessages = memoryCache.current[emailAddress] || [];
       
-      return messages;
+      // Merge new messages with existing ones, avoiding duplicates based on unique ID
+      const existingIds = new Set(existingMessages.map(msg => generateMessageUniqueId(msg)));
+      const newMessages = messages.filter(msg => !existingIds.has(generateMessageUniqueId(msg)));
+      
+      // Combine and sort by date (newest first)
+      const allMessages = [...existingMessages, ...newMessages].sort((a, b) => {
+        const dateA = new Date(typeof a.date === 'string' ? a.date : a.date.$date);
+        const dateB = new Date(typeof b.date === 'string' ? b.date : b.date.$date);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      // Clean up old messages and save
+      const cleanedMessages = cleanupOldMessages(allMessages);
+      await saveEmailMessages(emailAddress, cleanedMessages);
+      
+      if (newMessages.length > 0) {
+        console.log(`📧 Found ${newMessages.length} new messages for ${emailAddress}`);
+      }
+      
+      return cleanedMessages;
     } catch (error) {
       console.error(`❌ Failed to fetch messages for ${emailAddress}:`, error);
-      throw error;
+      
+      // Return cached messages if fetch fails
+      const cachedMessages = memoryCache.current[emailAddress] || [];
+      if (cachedMessages.length > 0) {
+        console.log(`📱 Returning ${cachedMessages.length} cached messages for ${emailAddress}`);
+        return cachedMessages;
+      }
+      
+      // If no cached messages, return empty array instead of throwing
+      return [];
     }
   };
 

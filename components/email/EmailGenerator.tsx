@@ -16,6 +16,7 @@ export const EmailGenerator = () => {
     generateNewEmail, 
     copyEmailToClipboard, 
     setCustomUsername,
+    resetToApiMode,
     domain 
   } = useEmail();
   
@@ -39,6 +40,9 @@ export const EmailGenerator = () => {
 
   const handleUsernameChange = (text: string) => {
     setUsername(text);
+    
+    // Reset to API mode when user manually changes username
+    resetToApiMode();
     setCustomUsername(text);
     
     // Show warning if username is too short
@@ -103,7 +107,10 @@ export const EmailGenerator = () => {
             styles.button,
             { opacity: pressed ? 0.7 : 1 }
           ]}
-          onPress={generateNewEmail}
+          onPress={() => {
+            resetToApiMode();
+            generateNewEmail();
+          }}
         >
           <IconSymbol name="arrow.clockwise" size={16} color={textColor} />
           <ThemedText style={styles.buttonText}>New</ThemedText>

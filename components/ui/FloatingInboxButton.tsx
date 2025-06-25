@@ -29,7 +29,7 @@ export const FloatingInboxButton = ({ currentRoute }: FloatingInboxButtonProps) 
     transform: [{ scale: scale.value }],
   }));
   
-  // Don't show on the inbox or drawer home pages
+  // Don't show on the inbox or drawer home pages, or lookup page
   const isOnInboxPage = 
     currentRoute === '/(drawer)' || 
     currentRoute === '/(drawer)/index' ||
@@ -37,7 +37,8 @@ export const FloatingInboxButton = ({ currentRoute }: FloatingInboxButtonProps) 
     currentRoute === '/' ||
     currentRoute === '' ||
     !currentRoute || // Default route
-    (currentRoute.includes('/(drawer)') && !currentRoute.includes('lookup') && !currentRoute.includes('about') && !currentRoute.includes('settings'));
+    currentRoute?.includes('lookup') || // Hide on lookup page
+    (currentRoute.includes('/(drawer)') && !currentRoute.includes('about') && !currentRoute.includes('settings'));
     
   if (isOnInboxPage) {
     return null;

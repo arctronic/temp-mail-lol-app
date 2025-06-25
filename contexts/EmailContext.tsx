@@ -37,6 +37,9 @@ interface EmailContextType {
   setCustomUsername: (username: string) => void;
   generateNewEmail: () => Promise<void>;
   copyEmailToClipboard: () => Promise<void>;
+  loadEmailsFromStorage: (emailAddress: string, localEmails: Email[]) => void;
+  resetToApiMode: () => void;
+  isUsingLocalStorage: boolean;
   isLoading: boolean;
   error: Error | null;
   refetch: () => Promise<unknown>;
@@ -75,6 +78,10 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
 
   // Separate initial loading state from query loading state
   const [initializing, setInitializing] = useState(true);
+  
+  // State to hold locally loaded emails (from lookup storage)
+  const [localEmails, setLocalEmails] = useState<Email[]>([]);
+  const [useLocalEmails, setUseLocalEmails] = useState(false);
   
   // Try to get reload interval from context after component mounts
   useEffect(() => {
@@ -118,7 +125,7 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const { data: emails = [], isLoading, error, refetch } = useQuery({
+  const { data: apiEmails = [], isLoading, error, refetch } = useQuery({
     queryKey: ['emails', generatedEmail],
     queryFn: async () => {
       if (!generatedEmail) return [];
@@ -190,13 +197,16 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
         return [];
       }
     },
-    enabled: shouldFetchEmails && !!generatedEmail && generatedEmail.split('@')[0].length >= MIN_USERNAME_LENGTH,
+    enabled: shouldFetchEmails && !useLocalEmails && !!generatedEmail && generatedEmail.split('@')[0].length >= MIN_USERNAME_LENGTH,
     refetchInterval: reloadInterval * 1000, // Convert seconds to milliseconds
     retry: 2,
     retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 5000),
     // Force staleTime to prevent immediate refetch
     staleTime: 10000,
   });
+
+  // Use local emails when available, otherwise use API emails
+  const emails = useLocalEmails ? localEmails : apiEmails;
 
   const generateNewEmail = async () => {
     try {
@@ -284,6 +294,33 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loadEmailsFromStorage = useCallback((emailAddress: string, storageEmails: Email[]) => {
+    console.log('Loading emails from storage for:', emailAddress);
+    console.log('Storage emails count:', storageEmails.length);
+    
+    // Set the email address
+    setGeneratedEmail(emailAddress);
+    setDomain(emailAddress.split('@')[1]);
+    
+    // Set local emails and enable local mode
+    setLocalEmails(storageEmails);
+    setUseLocalEmails(true);
+    
+    // Disable API fetching since we're using local data
+    setShouldFetchEmails(false);
+  }, []);
+
+  const resetToApiMode = useCallback(() => {
+    console.log('Resetting to API mode');
+    
+    // Clear local emails and disable local mode
+    setLocalEmails([]);
+    setUseLocalEmails(false);
+    
+    // Re-enable API fetching
+    setShouldFetchEmails(true);
+  }, []);
+
   const value: EmailContextType = {
     emails,
     currentEmail,
@@ -295,6 +332,9 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
       await generateNewEmail();
     },
     copyEmailToClipboard,
+    loadEmailsFromStorage,
+    resetToApiMode,
+    isUsingLocalStorage: useLocalEmails,
     isLoading: isLoading || initializing,
     error: error as Error | null,
     refetch,
