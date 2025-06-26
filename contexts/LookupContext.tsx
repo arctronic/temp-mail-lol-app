@@ -1,7 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
+import { useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useGlobalToast } from '../hooks/useGlobalToast';
 import { useAds } from './AdContext';
 import { Email } from './EmailContext';
 import { useNotification } from './NotificationContext';
@@ -30,7 +32,9 @@ interface LookupContextType {
   error: Error | null;
   // New methods for EPIC 4
   canAddInbox: () => boolean;
+  canAddExtraInbox: () => boolean;
   addEmailToLookupWithLimit: (email: string) => Promise<{ success: boolean; reason?: string }>;
+  addEmailToLookupWithAd: (email: string) => Promise<{ success: boolean; reason?: string }>;
   undoRemoveInbox: (email: LookupEmailWithMessages) => Promise<void>;
   maxInboxes: number;
 }
@@ -133,9 +137,11 @@ const safeAsyncStorageGetItem = async (key: string): Promise<string | null> => {
 };
 
 export function LookupProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [lookupEmails, setLookupEmails] = useState<LookupEmailWithMessages[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const { notificationsEnabled, notificationsSupported, updateLookupEmailStatus, showSuccessToast, showErrorToast } = useNotification();
+  const { notificationsEnabled, notificationsSupported, updateLookupEmailStatus } = useNotification();
+  const { showSuccess, showError } = useGlobalToast();
   const { showInterstitialAd, canShowAd, incrementAction } = useAds();
   
   // In-memory cache reference for faster access
@@ -446,8 +452,8 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       await showInterstitialAd();
     }
     
-         await addEmailToLookupWithoutLimit(email);
-     incrementAction('lookup');
+    await addEmailToLookupWithoutLimit(email);
+    incrementAction('lookup');
   };
 
   const addEmailToLookupWithoutLimit = async (email: string) => {
@@ -457,7 +463,7 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       // Check if email already exists
       const existingEmail = lookupEmails.find(e => e.address === email);
       if (existingEmail) {
-        showErrorToast('Email already in lookup list');
+        showError('Email already in lookup list');
         return;
       }
 
@@ -481,11 +487,11 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       await safeAsyncStorageSetItem(STORAGE_KEY_LOOKUP_EMAILS, JSON.stringify(updatedLookupEmails));
 
       console.log(`✅ Added ${email} to lookup list`);
-      showSuccessToast(`Added ${email} to monitoring`);
+      showSuccess(`Added ${email} to monitoring`);
       
     } catch (error) {
       console.error('Failed to add email to lookup:', error);
-      showErrorToast('Failed to add email');
+      showError('Failed to add email');
       throw error;
     }
   };
@@ -517,11 +523,11 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       delete readStatusCache.current[email];
 
       console.log(`✅ Removed ${email} from lookup list`);
-      showSuccessToast(`Removed ${email} from monitoring`);
+      showSuccess(`Removed ${email} from monitoring`);
       
     } catch (error) {
       console.error('Failed to remove email from lookup:', error);
-      showErrorToast('Failed to remove email');
+      showError('Failed to remove email');
       throw error;
     }
   };
@@ -530,16 +536,18 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔄 Manually refreshing lookup emails...');
       await refetch();
-      showSuccessToast('Refreshed email monitoring');
+      showSuccess('Refreshed email monitoring');
     } catch (error) {
       console.error('Failed to refresh lookup emails:', error);
-      showErrorToast('Failed to refresh emails');
+      showError('Failed to refresh emails');
       throw error;
     }
   };
 
   // New functions for EPIC 4
   const canAddInbox = () => lookupEmails.length < 5;
+  
+  const canAddExtraInbox = () => lookupEmails.length < 20; // Allow up to 20 with ads
 
   const addEmailToLookupWithLimit = async (email: string) => {
     if (canAddInbox()) {
@@ -547,6 +555,15 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       return { success: true };
     } else {
       return { success: false, reason: 'Maximum inbox limit reached' };
+    }
+  };
+
+  const addEmailToLookupWithAd = async (email: string) => {
+    if (canAddExtraInbox()) {
+      await addEmailToLookupWithoutLimit(email);
+      return { success: true };
+    } else {
+      return { success: false, reason: 'Maximum limit of 20 email addresses reached' };
     }
   };
 
@@ -573,11 +590,11 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       }
 
       console.log(`✅ Restored ${email.address} to lookup list`);
-      showSuccessToast(`Restored ${email.address} to monitoring`);
+      showSuccess(`Restored ${email.address} to monitoring`);
       
     } catch (error) {
       console.error('Failed to restore email to lookup:', error);
-      showErrorToast('Failed to restore email');
+      showError('Failed to restore email');
       throw error;
     }
   };
@@ -594,7 +611,9 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
     isLoading: isLoading || !isInitialized,
     error: error as Error | null,
     canAddInbox,
+    canAddExtraInbox,
     addEmailToLookupWithLimit,
+    addEmailToLookupWithAd,
     undoRemoveInbox,
     maxInboxes: 5,
   };

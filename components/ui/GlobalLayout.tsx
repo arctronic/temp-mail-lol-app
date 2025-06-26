@@ -19,33 +19,45 @@ import { IconSymbol } from './IconSymbol';
 // Task 3.3: Global Toast Component
 const ToastContainer = () => {
   const { toasts, hideToast } = useNotification();
+  const { activeTheme } = useThemePreference();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
-  const tintColor = useThemeColor({}, 'tint');
+  const cardColor = useThemeColor({}, 'card');
 
   const getToastColors = (type: string) => {
+    const isDark = activeTheme === 'dark';
+    
     switch (type) {
       case 'success':
-        return { background: '#4CAF50', text: '#FFFFFF' };
+        return { 
+          background: '#10B981', 
+          text: '#FFFFFF',
+          icon: 'checkmark.circle.fill'
+        };
       case 'error':
-        return { background: '#F44336', text: '#FFFFFF' };
+        return { 
+          background: '#EF4444', 
+          text: '#FFFFFF',
+          icon: 'xmark.circle.fill'
+        };
       case 'warning':
-        return { background: '#FF9800', text: '#FFFFFF' };
+        return { 
+          background: '#F59E0B', 
+          text: '#FFFFFF',
+          icon: 'exclamationmark.triangle.fill'
+        };
+      case 'info':
+        return { 
+          background: '#3B82F6', 
+          text: '#FFFFFF',
+          icon: 'info.circle.fill'
+        };
       default:
-        return { background: tintColor, text: '#FFFFFF' };
-    }
-  };
-
-  const getToastIcon = (type: string) => {
-    switch (type) {
-      case 'success':
-        return 'checkmark.circle.fill';
-      case 'error':
-        return 'xmark.circle.fill';
-      case 'warning':
-        return 'exclamationmark.triangle.fill';
-      default:
-        return 'info.circle.fill';
+        return { 
+          background: isDark ? '#374151' : '#F3F4F6', 
+          text: isDark ? '#FFFFFF' : '#1F2937',
+          icon: 'info.circle.fill'
+        };
     }
   };
 
@@ -55,7 +67,6 @@ const ToastContainer = () => {
     <View style={styles.toastContainer} pointerEvents="box-none">
       {toasts.map((toast, index) => {
         const colors = getToastColors(toast.type);
-        const icon = getToastIcon(toast.type);
         
         return (
           <Animated.View
@@ -64,17 +75,17 @@ const ToastContainer = () => {
               styles.toast,
               {
                 backgroundColor: colors.background,
-                bottom: 60 + (index * 70), // Stack toasts from bottom
+                bottom: 80 + (index * 80), // Stack toasts from bottom with more spacing
               }
             ]}
             entering={FadeInUp.duration(300).springify()}
             exiting={FadeOutDown.duration(200)}
           >
             <View style={styles.toastContent}>
-              <IconSymbol name={icon} size={20} color={colors.text} />
+              <IconSymbol name={colors.icon} size={22} color={colors.text} />
               <ThemedText 
                 style={[styles.toastText, { color: colors.text }]}
-                numberOfLines={2}
+                numberOfLines={3}
               >
                 {toast.message}
               </ThemedText>
@@ -82,7 +93,7 @@ const ToastContainer = () => {
             
             {toast.action && (
               <Pressable
-                style={styles.toastAction}
+                style={[styles.toastAction, { borderColor: 'rgba(255,255,255,0.3)' }]}
                 onPress={() => {
                   toast.action?.onPress();
                   hideToast(toast.id);
@@ -98,7 +109,7 @@ const ToastContainer = () => {
               style={styles.toastClose}
               onPress={() => hideToast(toast.id)}
             >
-              <IconSymbol name="xmark" size={16} color={colors.text} />
+              <IconSymbol name="xmark" size={18} color={colors.text} />
             </Pressable>
           </Animated.View>
         );
@@ -145,7 +156,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Task 3.3: Toast Styles
+  // Task 3.3: Enhanced Toast Styles
   toastContainer: {
     position: 'absolute',
     bottom: 0,
@@ -160,15 +171,15 @@ const styles = StyleSheet.create({
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    minHeight: 56,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+    minHeight: 64,
   },
   toastContent: {
     flex: 1,
@@ -180,21 +191,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   toastAction: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginLeft: 8,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginLeft: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   toastActionText: {
     fontSize: 14,
     fontWeight: '600',
   },
   toastClose: {
-    padding: 4,
+    padding: 8,
     marginLeft: 8,
+    borderRadius: 8,
   },
 }); 

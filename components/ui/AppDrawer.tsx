@@ -185,7 +185,7 @@ export const AppDrawer = ({ onClose }: AppDrawerProps) => {
               <ThemedText style={styles.avatarText}>{getInitial()}</ThemedText>
             </View>
             <View style={styles.headerTextContainer}>
-              <ThemedText style={styles.title}>Temp-Mail.Lol</ThemedText>
+              <ThemedText style={styles.title}>Temp Mail</ThemedText>
               {generatedEmail && (
                 <ThemedText style={styles.email} numberOfLines={1}>
                   {generatedEmail}
@@ -239,8 +239,8 @@ export const AppDrawer = ({ onClose }: AppDrawerProps) => {
         </ScrollView>
         
         <View style={[styles.footer, { borderTopColor: borderColor }]}>
-          <ThemedText style={styles.version}>Temp Mail v1.0.0</ThemedText>
-          <ThemedText style={styles.copyright}>© 2023 Temp Mail Services</ThemedText>
+                  <ThemedText style={styles.version}>Temp Mail v1.0.1</ThemedText>
+        <ThemedText style={styles.copyright}>© 2024 Temp Mail Services</ThemedText>
         </View>
       </Animated.View>
     </View>

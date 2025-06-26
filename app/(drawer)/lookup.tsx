@@ -2,16 +2,17 @@ import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { AddInboxModal } from '../../components/ui/AddInboxModal';
-import { CustomSnackbar } from '../../components/ui/CustomSnackbar';
 import { IconSymbol } from '../../components/ui/IconSymbol';
+import { useAds } from '../../contexts/AdContext';
 import { useEmail } from '../../contexts/EmailContext';
 import { LookupEmailWithMessages, useLookup } from '../../contexts/LookupContext';
-import { useSnackbar } from '../../hooks/useSnackbar';
+import { useGlobalToast } from '../../hooks/useGlobalToast';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { exportEmailsToExcel, getExportStatistics } from '../../utils/excelExport';
 
 const MAX_TRACKED_EMAILS = 5;
 
@@ -19,16 +20,19 @@ export default function LookupScreen() {
   const { 
     lookupEmails, 
     addEmailToLookupWithLimit,
+    addEmailToLookupWithAd,
     removeEmailFromLookup, 
     refreshLookupEmails, 
     getTotalUnreadCount,
     isLoading 
   } = useLookup();
   const { loadEmailsFromStorage } = useEmail();
+  const { showRewardedAdForAction } = useAds();
   const router = useRouter();
   
   const [showAddModal, setShowAddModal] = useState(false);
-  const { snackbar, showSuccess, showWarning, showError, hideSnackbar } = useSnackbar();
+  const [isExporting, setIsExporting] = useState(false);
+  const { showSuccess, showWarning, showError } = useGlobalToast();
   
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -45,26 +49,23 @@ export default function LookupScreen() {
   }, []);
 
   const handleRemoveInbox = useCallback((address: string) => {
-    Alert.alert(
-      'Remove Inbox',
-      `Stop tracking ${address}? All saved messages will be deleted.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Remove', 
-          style: 'destructive', 
-          onPress: async () => {
-            try {
-              await removeEmailFromLookup(address);
-              showSuccess(`Stopped tracking ${address}`);
-            } catch (error) {
-              showError('Failed to remove inbox');
-            }
-          }
-        },
-      ]
+    // Show rewarded ad for untracking
+    showRewardedAdForAction(
+      'untrack',
+      async () => {
+        try {
+          await removeEmailFromLookup(address);
+          showSuccess(`Stopped tracking ${address}`);
+        } catch (error) {
+          showError('Failed to remove inbox');
+        }
+      },
+      () => {
+        // User cancelled or ad failed
+        console.log('User cancelled untrack or ad failed');
+      }
     );
-  }, [removeEmailFromLookup, showSuccess, showError]);
+  }, [removeEmailFromLookup, showSuccess, showError, showRewardedAdForAction]);
 
   const handleAddInbox = useCallback(() => {
     if (!canAddInbox()) {
@@ -86,6 +87,60 @@ export default function LookupScreen() {
       showError('Failed to add inbox');
     }
   }, [addEmailToLookupWithLimit, showSuccess, showWarning, showError]);
+
+  const handleAddExtraInbox = useCallback(() => {
+    // Show rewarded ad for adding more than 5 inboxes
+    showRewardedAdForAction(
+      'add_extra',
+      () => {
+        setShowAddModal(true);
+      },
+      () => {
+        showWarning('Watch an ad to add more than 5 email addresses.');
+      }
+    );
+  }, [showRewardedAdForAction, showWarning]);
+
+  const handleAddInboxFromModalExtra = useCallback(async (email: string) => {
+    try {
+      const result = await addEmailToLookupWithAd(email);
+      if (result.success) {
+        showSuccess(`Started tracking ${email}`);
+      } else {
+        showWarning(result.reason || 'Failed to add inbox');
+      }
+    } catch (error) {
+      showError('Failed to add inbox');
+    }
+  }, [addEmailToLookupWithAd, showSuccess, showWarning, showError]);
+
+  const handleExport = async () => {
+    if (lookupEmails.length === 0) {
+      showWarning('No emails to export. Add some inboxes first.');
+      return;
+    }
+
+    const stats = getExportStatistics(lookupEmails);
+    
+    showRewardedAdForAction(
+      'export',
+      async () => {
+        try {
+          setIsExporting(true);
+          await exportEmailsToExcel(lookupEmails);
+          showSuccess('✅ Emails exported successfully!');
+        } catch (error) {
+          console.error('Export failed:', error);
+          showError('❌ Export failed. Please try again.');
+        } finally {
+          setIsExporting(false);
+        }
+      },
+      () => {
+        showWarning('📺 Watch an ad to export your emails to Excel');
+      }
+    );
+  };
 
   const handleEmailCardPress = useCallback((email: LookupEmailWithMessages) => {
     // Trigger haptic feedback
@@ -195,6 +250,32 @@ export default function LookupScreen() {
               <ThemedText style={[styles.loadingText, { color: textColor, opacity: 0.7 }]}>Syncing...</ThemedText>
             </ThemedView>
           )}
+          
+          {/* Export Button */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.exportButton,
+              { 
+                opacity: pressed ? 0.7 : 1,
+                backgroundColor: isExporting ? `${tintColor}20` : tintColor,
+                borderColor: tintColor,
+              }
+            ]}
+            onPress={handleExport}
+            disabled={isExporting || lookupEmails.length === 0}
+          >
+            <ThemedView style={[styles.exportButtonContent, { backgroundColor: 'transparent' }]}>
+              {isExporting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <IconSymbol name="square.and.arrow.down" size={18} color="#ffffff" />
+              )}
+              <ThemedText style={styles.exportButtonText}>
+                {isExporting ? 'Exporting...' : 'Export'}
+              </ThemedText>
+            </ThemedView>
+          </Pressable>
+          
           <Pressable
             style={({ pressed }) => [
               styles.syncButton,
@@ -256,7 +337,7 @@ export default function LookupScreen() {
       </ThemedView>
 
       {/* Add Button */}
-      {canAddInbox() && (
+      {lookupEmails.length > 0 && (
         <Pressable
           style={({ pressed }) => [
             styles.addButton,
@@ -264,7 +345,7 @@ export default function LookupScreen() {
               backgroundColor: pressed ? `${tintColor}90` : tintColor,
             },
           ]}
-          onPress={handleAddInbox}
+          onPress={canAddInbox() ? handleAddInbox : handleAddExtraInbox}
         >
           <IconSymbol name="plus" size={24} color="#ffffff" />
         </Pressable>
@@ -274,19 +355,9 @@ export default function LookupScreen() {
       <AddInboxModal
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onAddInbox={handleAddInboxFromModal}
+        onAddInbox={canAddInbox() ? handleAddInboxFromModal : handleAddInboxFromModalExtra}
         canAddInbox={canAddInbox()}
-        maxInboxes={MAX_TRACKED_EMAILS}
-      />
-
-      {/* Custom Snackbar */}
-      <CustomSnackbar
-        visible={snackbar.visible}
-        message={snackbar.message}
-        action={snackbar.action}
-        type={snackbar.type}
-        duration={snackbar.duration}
-        onDismiss={hideSnackbar}
+        maxInboxes={canAddInbox() ? MAX_TRACKED_EMAILS : 20}
       />
     </ThemedView>
   );
@@ -467,5 +538,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+  exportButton: {
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  exportButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exportButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });

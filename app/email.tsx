@@ -1,3 +1,4 @@
+import { useGlobalToast } from '@/hooks/useGlobalToast';
 import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
@@ -5,12 +6,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
-  FadeInDown,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming
+    FadeInDown,
+    FadeInUp,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
@@ -19,7 +20,6 @@ import { AppHeader } from '../components/ui/AppHeader';
 import { IconSymbol } from '../components/ui/IconSymbol';
 import { Email, useEmail } from '../contexts/EmailContext';
 import { useLookup } from '../contexts/LookupContext';
-import { useNotification } from '../contexts/NotificationContext';
 import { useThemeColor } from '../hooks/useThemeColor';
 
 // Import components from the email directory
@@ -43,7 +43,7 @@ export default function EmailDetailScreen() {
   const [showDetails, setShowDetails] = useState(false);
   
   // Task 3.3: Use toast system instead of local feedback
-  const { showSuccessToast, showErrorToast, showInfoToast } = useNotification();
+  const { showSuccess, showError, showInfo } = useGlobalToast();
   
   // Task 3.4: Enhanced animation values
   const headerOpacity = useSharedValue(0);
@@ -139,9 +139,9 @@ Date: ${formattedDate}
 ${displayEmail.message}`;
       
       await Clipboard.setStringAsync(emailContent);
-      showSuccessToast('📋 Email copied to clipboard', 3000);
+      showSuccess('📋 Email copied to clipboard', 3000);
     } catch (error) {
-      showErrorToast('Failed to copy email content', 4000);
+      showError('Failed to copy email content', 4000);
     }
   };
 
@@ -158,9 +158,9 @@ ${displayEmail.message}`;
       const fileUri = FileSystem.documentDirectory + fileName;
       
       await FileSystem.writeAsStringAsync(fileUri, emailContent);
-      showSuccessToast('💾 Email saved successfully', 3000);
+      showSuccess('💾 Email saved successfully', 3000);
     } catch (error) {
-      showErrorToast('Failed to save email locally', 4000);
+      showError('Failed to save email locally', 4000);
     }
   };
 
@@ -175,7 +175,7 @@ ${displayEmail.message}`;
           text: 'Delete', 
           style: 'destructive',
           onPress: () => {
-            showSuccessToast('🗑️ Email deleted', 2000);
+            showSuccess('🗑️ Email deleted', 2000);
             setTimeout(() => router.back(), 1500);
           }
         }
@@ -194,7 +194,7 @@ ${displayEmail.message}`;
           text: 'Report', 
           style: 'destructive',
           onPress: () => {
-            showInfoToast('🚩 Email reported as spam', 3000);
+            showInfo('🚩 Email reported as spam', 3000);
           }
         }
       ]
@@ -202,7 +202,7 @@ ${displayEmail.message}`;
   };
 
   const handleShare = async () => {
-    showInfoToast('📤 Share feature coming soon', 2000);
+    showInfo('📤 Share feature coming soon', 2000);
   };
 
 

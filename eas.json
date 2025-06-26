@@ -16,7 +16,11 @@
     },
     "production": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "image": "latest"
+      },
+      "env": {
+        "EXPO_ANDROID_NDK_VERSION": "27.1.12297006"
       }
     },
     "production-apk": {

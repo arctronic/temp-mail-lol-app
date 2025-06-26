@@ -4,10 +4,15 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Email, useEmail } from '@/contexts/EmailContext';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import * as Clipboard from 'expo-clipboard';
-import React, { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmailAttachments } from './EmailAttachments';
 import { EmailContent } from './EmailContent';
+
+// Helper function to get favicon URL (same as EmailList)
+const getFaviconUrl = (domain: string) => {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+};
 
 interface EmailDetailsDialogProps {
   email: Email | null;
@@ -20,7 +25,45 @@ export const EmailDetailsDialog = ({ email, onClose }: EmailDetailsDialogProps) 
   const borderColor = useThemeColor({}, 'border');
   const accentColor = useThemeColor({}, 'tint');
   const [showDetails, setShowDetails] = useState(false);
+  const [faviconError, setFaviconError] = useState(false);
   const { refetch } = useEmail();
+
+  // Helper functions (same as EmailList)
+  const getSenderName = (sender: string) => {
+    if (!sender) return '';
+    // Extract name from "Name <email>" format or just return email
+    const match = sender.match(/^(.*?)\s*<.*>$/);
+    if (match && match[1].trim()) {
+      return match[1].trim();
+    }
+    return sender.split('@')[0];
+  };
+
+  const getSenderEmail = (sender: string) => {
+    if (!sender) return '';
+    const match = sender.match(/<(.+)>/);
+    return match ? match[1] : sender;
+  };
+
+  const getSenderDomain = (sender: string) => {
+    const emailAddress = getSenderEmail(sender);
+    const domain = emailAddress.split('@')[1];
+    if (!domain) return '';
+    
+    // Extract main domain by taking the last two parts (domain.tld)
+    // This handles cases like mail.facebook.com -> facebook.com
+    const domainParts = domain.split('.');
+    if (domainParts.length >= 2) {
+      // Take the last two parts (e.g., facebook.com from mail.facebook.com)
+      return domainParts.slice(-2).join('.');
+    }
+    return domain;
+  };
+
+  // Reset favicon error when email changes
+  useEffect(() => {
+    setFaviconError(false);
+  }, [email?.sender]);
 
   if (!email) return null;
 
@@ -34,14 +77,9 @@ export const EmailDetailsDialog = ({ email, onClose }: EmailDetailsDialogProps) 
     minute: '2-digit',
   });
 
-  // Get sender name without email address
-  const senderName = email.sender.replace(/<.*>/, '').trim();
+  const senderName = getSenderName(email.sender);
   const senderInitial = senderName.charAt(0).toUpperCase();
-  
-  // Extract email address from sender
-  const emailRegex = /<([^>]+)>/;
-  const match = email.sender.match(emailRegex);
-  const senderEmail = match ? match[1] : email.sender;
+  const senderEmail = getSenderEmail(email.sender);
 
   const handleReply = () => {
     Alert.alert(
@@ -143,8 +181,22 @@ ${email.message}
           </ThemedText>
 
           <View style={styles.senderContainer}>
-            <View style={[styles.avatar, { backgroundColor: accentColor }]}>
-              <ThemedText style={styles.avatarText}>{senderInitial}</ThemedText>
+            <View style={[
+              styles.avatar, 
+              { backgroundColor: faviconError ? accentColor : 'transparent' }
+            ]}>
+              {!faviconError ? (
+                <Image
+                  source={{ uri: getFaviconUrl(getSenderDomain(email.sender)) }}
+                  style={styles.faviconImage}
+                  onError={() => setFaviconError(true)}
+                  onLoad={() => setFaviconError(false)}
+                />
+              ) : (
+                <Text style={[styles.avatarText, { color: '#fff' }]}>
+                  {senderInitial}
+                </Text>
+              )}
             </View>
             
             <View style={styles.senderInfo}>
@@ -195,7 +247,7 @@ ${email.message}
             {email.attachments && email.attachments.length > 0 && (
               <EmailAttachments attachments={email.attachments} />
             )}
-            <EmailContent message={email.message} />
+            <EmailContent htmlContent={email.message} />
           </View>
           
           <View style={styles.actionBar}>
@@ -336,5 +388,10 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 14,
+  },
+  faviconImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
   },
 }); 

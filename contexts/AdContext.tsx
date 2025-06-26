@@ -1,38 +1,52 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import Constants from 'expo-constants';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Alert, Platform } from 'react-native';
+import { getAdUnitIds } from '../constants/AdMobConfig';
+import { useGlobalToast } from '../hooks/useGlobalToast';
 
-// AdMob imports (install: expo install expo-ads-admob)
-let AdMobBanner: any = null;
-let AdMobInterstitial: any = null;
-let AdMobRewarded: any = null;
+// Conditional import to prevent errors in Expo Go
+let mobileAds: any = null;
+let AdsConsent: any = null;
+let AdsConsentStatus: any = null;
+let InterstitialAd: any = null;
+let RewardedAd: any = null;
+let AdEventType: any = null;
+let RewardedAdEventType: any = null;
+let TestIds: any = null;
 
-try {
-  const AdMob = require('expo-ads-admob');
-  AdMobBanner = AdMob.AdMobBanner;
-  AdMobInterstitial = AdMob.AdMobInterstitial;
-  AdMobRewarded = AdMob.AdMobRewarded;
-} catch (error) {
-  console.log('AdMob not available');
+// Check if we're running in Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
+  try {
+    const googleMobileAds = require('react-native-google-mobile-ads');
+    mobileAds = googleMobileAds.default;
+    AdsConsent = googleMobileAds.AdsConsent;
+    AdsConsentStatus = googleMobileAds.AdsConsentStatus;
+    InterstitialAd = googleMobileAds.InterstitialAd;
+    RewardedAd = googleMobileAds.RewardedAd;
+    AdEventType = googleMobileAds.AdEventType;
+    RewardedAdEventType = googleMobileAds.RewardedAdEventType;
+    TestIds = googleMobileAds.TestIds;
+  } catch (error) {
+    console.log('⚠️ Google Mobile Ads not available in current environment');
+  }
 }
 
 interface AdContextType {
   showInterstitialAd: () => Promise<void>;
   showRewardedAd: (onReward: () => void) => Promise<void>;
+  showRewardedAdForAction: (action: 'untrack' | 'add_extra' | 'export', onReward: () => void, onFail?: () => void) => Promise<void>;
   canShowAd: (type: 'refresh' | 'lookup' | 'generation') => boolean;
   incrementAction: (type: 'refresh' | 'lookup' | 'generation') => void;
   isAdFree: boolean;
   enableAdFreeMode: (hours: number) => void;
+  isInitialized: boolean;
+  hasConsent: boolean;
 }
 
 const AdContext = createContext<AdContextType | undefined>(undefined);
-
-// Ad unit IDs (replace with your actual AdMob IDs)
-const AD_UNIT_IDS = {
-  banner: __DEV__ ? 'ca-app-pub-3940256099942544/6300978111' : 'YOUR_BANNER_ID',
-  interstitial: __DEV__ ? 'ca-app-pub-3940256099942544/1033173712' : 'YOUR_INTERSTITIAL_ID',
-  rewarded: __DEV__ ? 'ca-app-pub-3940256099942544/5224354917' : 'YOUR_REWARDED_ID',
-};
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -41,6 +55,7 @@ const STORAGE_KEYS = {
   generationCount: 'ad_generation_count',
   adFreeUntil: 'ad_free_until',
   lastAdShown: 'last_ad_shown',
+  consentStatus: 'ad_consent_status',
 };
 
 export function AdProvider({ children }: { children: React.ReactNode }) {
@@ -49,6 +64,73 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   const [generationCount, setGenerationCount] = useState(0);
   const [isAdFree, setIsAdFree] = useState(false);
   const [lastAdShown, setLastAdShown] = useState(0);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [hasConsent, setHasConsent] = useState(false);
+  
+  const { showError, showInfo, showSuccess } = useGlobalToast();
+  const isMobileAdsStartCalledRef = useRef(false);
+  
+  // Use any type for refs since we're conditionally importing
+  const interstitialRef = useRef<any>(null);
+  const rewardedRef = useRef<any>(null);
+
+  // Initialize AdMob following Google's official guidelines
+  // Source: https://developers.google.com/admob/android/quick-start#initialize_the_google_mobile_ads_sdk
+  const initializeAdMob = useCallback(async () => {
+    // Skip initialization in Expo Go or if already initialized
+    if (isExpoGo || !mobileAds || isInitialized) {
+      console.log('⚠️ AdMob not available in Expo Go or already initialized - skipping initialization');
+      if (!isInitialized && (isExpoGo || !mobileAds)) {
+        setIsInitialized(true); // Set as initialized to prevent blocking the app
+      }
+      return;
+    }
+
+    try {
+      console.log('🚀 Initializing Google Mobile Ads SDK...');
+      
+      // Step 1: Request consent before initialization (GDPR compliance)
+      await requestConsentInformation();
+      
+      // Step 2: Initialize on background thread as recommended by Google
+      const initializationStatus = await mobileAds().initialize();
+      
+      console.log('✅ Google Mobile Ads SDK initialized successfully');
+      console.log('📊 Initialization status:', initializationStatus);
+      
+      // Step 3: Set request configuration
+      await mobileAds().setRequestConfiguration({
+        maxAdContentRating: 'T' as any,
+        tagForChildDirectedTreatment: undefined,
+        tagForUnderAgeOfConsent: undefined,
+        testDeviceIdentifiers: [],
+      });
+      
+      setIsInitialized(true);
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize Google Mobile Ads SDK:', error);
+      // Don't show error toast to users - just log it
+      setIsInitialized(false);
+    }
+  }, []); // Remove isInitialized dependency to prevent re-runs
+
+  // Initialize AdMob on component mount
+  useEffect(() => {
+    let isMounted = true;
+    
+    const initializeAds = async () => {
+      if (!isInitialized && isMounted) {
+        await initializeAdMob();
+      }
+    };
+    
+    initializeAds();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   // Load counters on mount
   useEffect(() => {
@@ -56,40 +138,115 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
     checkAdFreeStatus();
   }, []);
 
-  // Initialize AdMob
-  useEffect(() => {
-    if (AdMobInterstitial && AdMobRewarded) {
-      initializeAds();
-    }
-  }, []);
-
-  const initializeAds = async () => {
+  const requestConsentInformation = async () => {
     try {
-      // Set ad unit IDs
-      await AdMobInterstitial.setAdUnitID(AD_UNIT_IDS.interstitial);
-      await AdMobRewarded.setAdUnitID(AD_UNIT_IDS.rewarded);
+      console.log('📋 Requesting consent information...');
       
-      // Request ads
-      await AdMobInterstitial.requestAdAsync();
-      await AdMobRewarded.requestAdAsync();
+      // Request consent information and show form if required
+      await AdsConsent.gatherConsent();
+      
+      // Check consent status
+      const consentInfo = await AdsConsent.getConsentInfo();
+      const canRequestAds = consentInfo.canRequestAds;
+      
+      console.log('📋 Consent status:', {
+        canRequestAds,
+        status: consentInfo.status
+      });
+      
+      setHasConsent(canRequestAds);
+      await AsyncStorage.setItem(STORAGE_KEYS.consentStatus, JSON.stringify(canRequestAds));
+      
     } catch (error) {
-      console.log('Failed to initialize ads:', error);
+      console.log('📋 Consent gathering failed, proceeding with limited ads:', error);
+      // Fallback to limited ads
+      setHasConsent(false);
+    }
+  };
+
+  const startGoogleMobileAdsSDK = async () => {
+    const consentInfo = await AdsConsent.getConsentInfo();
+    
+    if (!consentInfo.canRequestAds || isMobileAdsStartCalledRef.current) {
+      return;
+    }
+
+    isMobileAdsStartCalledRef.current = true;
+
+    // Handle App Tracking Transparency for iOS
+    if (Platform.OS === 'ios') {
+      try {
+        const gdprApplies = await AdsConsent.getGdprApplies();
+        const hasConsentForPurposeOne = gdprApplies && (await AdsConsent.getPurposeConsents()).startsWith("1");
+        
+        if (!gdprApplies || hasConsentForPurposeOne) {
+          // Request ATT if needed
+          console.log('📱 ATT consent obtained or not required');
+        }
+      } catch (error) {
+        console.log('📱 ATT handling failed:', error);
+      }
+    }
+
+    // Initialize the Google Mobile Ads SDK
+    console.log('🎯 Initializing Google Mobile Ads SDK...');
+    const adapterStatuses = await mobileAds().initialize();
+    console.log('🎯 Mobile Ads SDK initialized:', adapterStatuses);
+  };
+
+  const createAdInstances = () => {
+    try {
+      const adUnitIds = getAdUnitIds();
+      
+      // Create Interstitial Ad
+      const interstitialAdUnitId = __DEV__ ? TestIds.INTERSTITIAL : adUnitIds.interstitial;
+      interstitialRef.current = InterstitialAd.createForAdRequest(interstitialAdUnitId, {
+        requestNonPersonalizedAdsOnly: !hasConsent,
+      });
+      
+      // Create Rewarded Ad
+      const rewardedAdUnitId = __DEV__ ? TestIds.REWARDED : adUnitIds.rewarded;
+      rewardedRef.current = RewardedAd.createForAdRequest(rewardedAdUnitId, {
+        requestNonPersonalizedAdsOnly: !hasConsent,
+      });
+      
+      // Load initial ads
+      loadInterstitialAd();
+      loadRewardedAd();
+      
+      console.log('📺 Ad instances created and loading...');
+    } catch (error) {
+      console.error('📺 Failed to create ad instances:', error);
+    }
+  };
+
+  const loadInterstitialAd = () => {
+    if (interstitialRef.current) {
+      interstitialRef.current.load();
+    }
+  };
+
+  const loadRewardedAd = () => {
+    if (rewardedRef.current) {
+      rewardedRef.current.load();
     }
   };
 
   const loadCounters = async () => {
     try {
-      const [refresh, lookup, generation, lastAd] = await Promise.all([
+      const [refresh, lookup, generation, lastAd, consent] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.refreshCount),
         AsyncStorage.getItem(STORAGE_KEYS.lookupCount),
         AsyncStorage.getItem(STORAGE_KEYS.generationCount),
         AsyncStorage.getItem(STORAGE_KEYS.lastAdShown),
+        AsyncStorage.getItem(STORAGE_KEYS.consentStatus),
       ]);
 
       setRefreshCount(refresh ? parseInt(refresh) : 0);
       setLookupCount(lookup ? parseInt(lookup) : 0);
       setGenerationCount(generation ? parseInt(generation) : 0);
       setLastAdShown(lastAd ? parseInt(lastAd) : 0);
+      setHasConsent(consent ? JSON.parse(consent) : false);
     } catch (error) {
       console.log('Failed to load ad counters:', error);
     }
@@ -108,7 +265,7 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   };
 
   const canShowAd = (type: 'refresh' | 'lookup' | 'generation'): boolean => {
-    if (isAdFree) return false;
+    if (isAdFree || !isInitialized) return false;
     
     // Minimum 60 seconds between ads
     if (Date.now() - lastAdShown < 60000) return false;
@@ -151,60 +308,152 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const showInterstitialAd = async (): Promise<void> => {
-    if (!AdMobInterstitial || isAdFree) return;
+  const showInterstitialAd = useCallback(async (): Promise<void> => {
+    // Skip in Expo Go
+    if (isExpoGo || !mobileAds || !InterstitialAd) {
+      console.log('⚠️ Interstitial ads not available in Expo Go');
+      return;
+    }
 
     try {
-      const isReady = await AdMobInterstitial.getIsReadyAsync();
-      if (isReady) {
-        await AdMobInterstitial.showAdAsync();
+      const isLoaded = interstitialRef.current.loaded;
+      if (isLoaded) {
+        await interstitialRef.current.show();
         setLastAdShown(Date.now());
         await AsyncStorage.setItem(STORAGE_KEYS.lastAdShown, Date.now().toString());
         
-        // Request next ad
-        setTimeout(() => {
-          AdMobInterstitial.requestAdAsync();
-        }, 1000);
+        // Load next ad
+        setTimeout(loadInterstitialAd, 1000);
       }
     } catch (error) {
       console.log('Failed to show interstitial ad:', error);
     }
-  };
+  }, []);
 
-  const showRewardedAd = async (onReward: () => void): Promise<void> => {
-    if (!AdMobRewarded) return;
+  const showRewardedAd = useCallback(async (onReward: () => void): Promise<void> => {
+    // Skip in Expo Go
+    if (isExpoGo || !mobileAds || !RewardedAd) {
+      console.log('⚠️ Rewarded ads not available in Expo Go');
+      onReward(); // Still execute the reward action for testing
+      return;
+    }
 
     try {
-      const isReady = await AdMobRewarded.getIsReadyAsync();
-      if (isReady) {
+      const isLoaded = rewardedRef.current.loaded;
+      if (isLoaded) {
         // Set up reward listener
-        const rewardListener = AdMobRewarded.addEventListener('rewardedVideoUserDidEarnReward', () => {
+        const unsubscribe = rewardedRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+          console.log('🎁 User earned reward');
           onReward();
-          rewardListener.remove();
+          unsubscribe();
         });
 
-        await AdMobRewarded.showAdAsync();
+        await rewardedRef.current.show();
         
-        // Request next ad
-        setTimeout(() => {
-          AdMobRewarded.requestAdAsync();
-        }, 1000);
+        // Load next ad
+        setTimeout(loadRewardedAd, 1000);
       } else {
-        Alert.alert(
-          'Ad Not Ready',
-          'Please try again in a moment.',
-          [{ text: 'OK' }]
-        );
+        showInfo('Ad not ready, please try again in a moment');
       }
     } catch (error) {
       console.log('Failed to show rewarded ad:', error);
+      showError('Unable to load ad. Please try again.');
+    }
+  }, []);
+
+  const showRewardedAdForAction = useCallback(async (
+    action: 'untrack' | 'add_extra' | 'export', 
+    onReward: () => void, 
+    onFail?: () => void
+  ): Promise<void> => {
+    // Skip in Expo Go - just execute the reward action
+    if (isExpoGo || !mobileAds || !RewardedAd) {
+      console.log(`⚠️ Rewarded ads not available in Expo Go - executing ${action} action directly`);
+      onReward();
+      return;
+    }
+
+    const actionMessages = {
+      untrack: {
+        title: 'Watch Ad to Untrack Email',
+        message: 'Watch a short ad to remove this email from your lookup list.',
+        notReady: 'Ad not ready. Please try again in a moment.',
+        failed: 'Unable to load ad. Please try again later.'
+      },
+      add_extra: {
+        title: 'Watch Ad for Extra Inbox',
+        message: 'Watch a short ad to add more than 5 email addresses to your lookup list.',
+        notReady: 'Ad not ready. Please try again in a moment.',
+        failed: 'Unable to load ad. Please try again later.'
+      },
+      export: {
+        title: 'Watch Ad to Export Emails',
+        message: 'Watch a short ad to download all your emails as an Excel file.',
+        notReady: 'Ad not ready. Please try again in a moment.',
+        failed: 'Unable to load ad. Please try again later.'
+      }
+    };
+
+    const messages = actionMessages[action];
+
+    try {
+      const isLoaded = rewardedRef.current.loaded;
+      console.log('🎁 Rewarded ad loaded:', isLoaded);
+      
+      if (isLoaded) {
+        // Show confirmation dialog
+        Alert.alert(
+          messages.title,
+          messages.message,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: onFail },
+            { 
+              text: 'Watch Ad', 
+              onPress: async () => {
+                try {
+                  // Set up reward listener
+                  const unsubscribe = rewardedRef.current!.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+                    console.log('🎁 Rewarded ad completed successfully');
+                    onReward();
+                    unsubscribe();
+                  });
+
+                  await rewardedRef.current!.show();
+                  
+                  // Load next ad
+                  setTimeout(loadRewardedAd, 1000);
+                } catch (error) {
+                  console.log('🎁 Failed to show rewarded ad:', error);
+                  Alert.alert('Ad Failed', messages.failed, [{ text: 'OK' }]);
+                  onFail?.();
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        console.log('🎁 Rewarded ad not ready, showing fallback option');
+        Alert.alert(
+          'Ad Not Ready', 
+          messages.notReady + '\n\nWould you like to try the action anyway?',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: onFail },
+            { text: 'Try Anyway', onPress: onReward }
+          ]
+        );
+      }
+    } catch (error) {
+      console.log('🎁 Error in showRewardedAdForAction:', error);
       Alert.alert(
-        'Ad Failed',
-        'Unable to load ad. Please try again.',
-        [{ text: 'OK' }]
+        'Ad Error', 
+        messages.failed + '\n\nWould you like to try the action anyway?',
+        [
+          { text: 'Cancel', style: 'cancel', onPress: onFail },
+          { text: 'Try Anyway', onPress: onReward }
+        ]
       );
     }
-  };
+  }, []);
 
   const enableAdFreeMode = async (hours: number) => {
     const until = Date.now() + (hours * 60 * 60 * 1000);
@@ -220,10 +469,13 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   const value = {
     showInterstitialAd,
     showRewardedAd,
+    showRewardedAdForAction,
     canShowAd,
     incrementAction,
     isAdFree,
     enableAdFreeMode,
+    isInitialized,
+    hasConsent,
   };
 
   return (

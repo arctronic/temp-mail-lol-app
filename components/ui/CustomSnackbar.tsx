@@ -17,14 +17,14 @@ export interface SnackbarProps {
   action?: SnackbarAction;
   duration?: number;
   onDismiss: () => void;
-  type?: 'default' | 'success' | 'error' | 'warning';
+  type?: 'default' | 'success' | 'error' | 'warning' | 'info';
 }
 
 export function CustomSnackbar({
   visible,
   message,
   action,
-  duration = 3000,
+  duration = 4000,
   onDismiss,
   type = 'default',
 }: SnackbarProps) {
@@ -32,7 +32,6 @@ export function CustomSnackbar({
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');
-  const borderColor = useThemeColor({}, 'border');
   
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -41,31 +40,39 @@ export function CustomSnackbar({
   const getSnackbarColors = () => {
     switch (type) {
       case 'success':
-        return { background: '#4CAF50', text: '#FFFFFF' };
+        return { 
+          background: '#10B981', 
+          text: '#FFFFFF',
+          icon: 'checkmark.circle.fill'
+        };
       case 'error':
-        return { background: '#F44336', text: '#FFFFFF' };
+        return { 
+          background: '#EF4444', 
+          text: '#FFFFFF',
+          icon: 'xmark.circle.fill'
+        };
       case 'warning':
-        return { background: '#FF9800', text: '#FFFFFF' };
+        return { 
+          background: '#F59E0B', 
+          text: '#FFFFFF',
+          icon: 'exclamationmark.triangle.fill'
+        };
+      case 'info':
+        return { 
+          background: '#3B82F6', 
+          text: '#FFFFFF',
+          icon: 'info.circle.fill'
+        };
       default:
-        return { background: backgroundColor, text: textColor };
-    }
-  };
-
-  const getSnackbarIcon = () => {
-    switch (type) {
-      case 'success':
-        return 'checkmark.circle.fill';
-      case 'error':
-        return 'xmark.circle.fill';
-      case 'warning':
-        return 'exclamationmark.triangle.fill';
-      default:
-        return 'info.circle.fill';
+        return { 
+          background: '#1F2937', 
+          text: '#FFFFFF',
+          icon: 'info.circle.fill'
+        };
     }
   };
 
   const colors = getSnackbarColors();
-  const icon = getSnackbarIcon();
 
   useEffect(() => {
     if (visible) {
@@ -136,7 +143,7 @@ export function CustomSnackbar({
       style={[
         styles.snackbarContainer,
         {
-          bottom: insets.bottom + 16,
+          bottom: insets.bottom + 20,
           transform: [{ translateY }],
           opacity,
         },
@@ -147,24 +154,23 @@ export function CustomSnackbar({
           styles.snackbar,
           {
             backgroundColor: colors.background,
-            borderColor: type === 'default' ? borderColor : colors.background,
           },
         ]}
       >
-        <ThemedView style={styles.content}>
-          <IconSymbol name={icon} size={20} color={colors.text} />
-          <ThemedText style={[styles.message, { color: colors.text }]} numberOfLines={2}>
+        <ThemedView style={[styles.content, { backgroundColor: 'transparent' }]}>
+          <IconSymbol name={colors.icon} size={22} color={colors.text} />
+          <ThemedText style={[styles.message, { color: colors.text }]} numberOfLines={3}>
             {message}
           </ThemedText>
         </ThemedView>
 
-        <ThemedView style={styles.actions}>
+        <ThemedView style={[styles.actions, { backgroundColor: 'transparent' }]}>
           {action && (
             <Pressable
               style={({ pressed }) => [
                 styles.actionButton,
                 {
-                  backgroundColor: pressed ? `${colors.text}20` : 'transparent',
+                  backgroundColor: pressed ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)',
                 },
               ]}
               onPress={handleActionPress}
@@ -179,12 +185,12 @@ export function CustomSnackbar({
             style={({ pressed }) => [
               styles.dismissButton,
               {
-                backgroundColor: pressed ? `${colors.text}20` : 'transparent',
+                backgroundColor: pressed ? 'rgba(255,255,255,0.2)' : 'transparent',
               },
             ]}
             onPress={handleDismiss}
           >
-            <IconSymbol name="xmark" size={16} color={colors.text} />
+            <IconSymbol name="xmark" size={18} color={colors.text} />
           </Pressable>
         </ThemedView>
       </ThemedView>
@@ -197,19 +203,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    zIndex: 999,
+    zIndex: 9999,
   },
   snackbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 12,
+    minHeight: 60,
   },
   content: {
     flex: 1,
@@ -219,26 +226,29 @@ const styles = StyleSheet.create({
   },
   message: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginLeft: 8,
   },
   actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   actionText: {
     fontSize: 14,
     fontWeight: '600',
   },
   dismissButton: {
-    padding: 6,
-    borderRadius: 6,
+    padding: 8,
+    borderRadius: 8,
   },
 }); 

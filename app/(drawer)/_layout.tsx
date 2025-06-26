@@ -102,7 +102,7 @@ export default function DrawerLayout() {
         <Drawer.Screen
           name="index"
           options={{
-            title: "Temp-Mail.Lol",
+            title: "Temp Mail",
           }}
         />
         <Drawer.Screen

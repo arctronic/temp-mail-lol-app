@@ -6,16 +6,16 @@ import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    Image,
+    RefreshControl,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
@@ -417,7 +417,7 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [hasInitiallyLoaded]);
 
   useEffect(() => {
     if (!isLoading && !hasInitiallyLoaded) {

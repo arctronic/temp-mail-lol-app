@@ -31,7 +31,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
-rootProject.name = 'Temp-Mail.Lol'
+rootProject.name = 'Temp Mail'
 
 expoAutolinking.useExpoVersionCatalog()
 

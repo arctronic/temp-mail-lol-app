@@ -47,6 +47,7 @@ interface NotificationContextType {
   showSuccessToast: (message: string, duration?: number) => void;
   showErrorToast: (message: string, duration?: number) => void;
   showInfoToast: (message: string, duration?: number) => void;
+  showWarningToast: (message: string, duration?: number) => void;
   hideToast: (id: string) => void;
   clearAllToasts: () => void;
 }
@@ -209,7 +210,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return Array.from(lookupStatuses.values());
   }, [lookupStatuses]);
 
-  // Task 3.3: Toast System Implementation
+  // Task 3.3: Enhanced Toast System Implementation
   const generateToastId = () => `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const showToast = useCallback((
@@ -218,6 +219,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     duration: number = 4000,
     action?: ToastMessage['action']
   ) => {
+    // Prevent duplicate toasts with same message
+    const existingToast = toasts.find(toast => toast.message === message && toast.type === type);
+    if (existingToast) {
+      console.log('Preventing duplicate toast:', message);
+      return existingToast.id;
+    }
+
     const id = generateToastId();
     const newToast: ToastMessage = {
       id,
@@ -228,22 +236,42 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
 
     // Add haptic feedback based on toast type
-    switch (type) {
-      case 'success':
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        break;
-      case 'error':
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        break;
-      case 'warning':
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        break;
-      default:
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        break;
+    try {
+      switch (type) {
+        case 'success':
+          if (Platform.OS === 'ios') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          break;
+        case 'error':
+          if (Platform.OS === 'ios') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          }
+          break;
+        case 'warning':
+          if (Platform.OS === 'ios') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          } else {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+          break;
+        default:
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          break;
+      }
+    } catch (error) {
+      console.log('Haptic feedback failed:', error);
     }
 
-    setToasts(prev => [...prev, newToast]);
+    setToasts(prev => {
+      // Limit to maximum 3 toasts at once
+      const filteredToasts = prev.slice(-2); // Keep only last 2 toasts
+      return [...filteredToasts, newToast];
+    });
 
     // Auto-hide toast after duration
     if (duration > 0) {
@@ -253,7 +281,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     return id;
-  }, []);
+  }, [toasts]);
 
   const showSuccessToast = useCallback((message: string, duration: number = 3000) => {
     return showToast(message, 'success', duration);
@@ -265,6 +293,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const showInfoToast = useCallback((message: string, duration: number = 4000) => {
     return showToast(message, 'info', duration);
+  }, [showToast]);
+
+  const showWarningToast = useCallback((message: string, duration: number = 4000) => {
+    return showToast(message, 'warning', duration);
   }, [showToast]);
 
   const hideToast = useCallback((id: string) => {
@@ -284,12 +316,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     getLookupEmailStatus,
     getAllLookupStatuses,
     
-    // Toast system
+    // Enhanced Toast system
     toasts,
     showToast,
     showSuccessToast,
     showErrorToast,
     showInfoToast,
+    showWarningToast,
     hideToast,
     clearAllToasts,
   };

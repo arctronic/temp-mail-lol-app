@@ -102,28 +102,44 @@ export function EmailProvider({ children }: { children: React.ReactNode }) {
   
   // Set a default email immediately to improve UI rendering speed
   useEffect(() => {
-    // Set a temporary email immediately for faster UI rendering
-    const tempUser = `user${Math.floor(Math.random() * 10000)}`;
-    setGeneratedEmail(`${tempUser}@${domain}`);
+    let isMounted = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let delayTimer: ReturnType<typeof setTimeout> | null = null;
     
-    // Then schedule the actual email generation
-    const timer = setTimeout(async () => {
-      await generateNewEmail();
-      setInitializing(false);
-      // Add slight delay before enabling email fetching
-      setTimeout(() => {
-        setShouldFetchEmails(true);
-        setPreloaded(false);
-      }, 1500);
-    }, 300);
+    const initialize = async () => {
+      if (!isMounted) return;
+      
+      // Set a temporary email immediately for faster UI rendering
+      const tempUser = `user${Math.floor(Math.random() * 10000)}`;
+      setGeneratedEmail(`${tempUser}@${domain}`);
+      
+      // Then schedule the actual email generation
+      timer = setTimeout(async () => {
+        if (!isMounted) return;
+        
+        await generateNewEmail();
+        setInitializing(false);
+        
+        // Add slight delay before enabling email fetching
+        delayTimer = setTimeout(() => {
+          if (!isMounted) return;
+          setShouldFetchEmails(true);
+          setPreloaded(false);
+        }, 1500);
+      }, 300);
+    };
+    
+    initialize();
     
     return () => {
-      clearTimeout(timer);
+      isMounted = false;
+      if (timer) clearTimeout(timer);
+      if (delayTimer) clearTimeout(delayTimer);
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, []);
+  }, []); // Empty dependency - only run once on mount
 
   const { data: apiEmails = [], isLoading, error, refetch } = useQuery({
     queryKey: ['emails', generatedEmail],
