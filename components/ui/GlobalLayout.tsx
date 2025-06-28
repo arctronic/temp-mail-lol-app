@@ -139,7 +139,7 @@ export const GlobalLayout = ({ children }: GlobalLayoutProps) => {
     <SafeAreaProvider>
       <View style={[styles.container, { backgroundColor }]}>
         <StatusBar 
-          style={activeTheme === 'dark' ? 'light' : 'dark'} 
+          style={activeTheme === 'dark' ? 'light' : 'dark'}
           backgroundColor={backgroundColor}
           translucent={false}
         />

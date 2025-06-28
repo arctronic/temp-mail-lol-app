@@ -31,7 +31,7 @@
       "compileSdkVersion": 35,
       "targetSdkVersion": 35,
       "minSdkVersion": 24,
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "notification": {
         "icon": "./assets/images/temp-mail-icon-removebg.png",
         "color": "#0F5259"
@@ -132,7 +132,8 @@
             "pwa73g5rt2.skadnetwork"
           ]
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

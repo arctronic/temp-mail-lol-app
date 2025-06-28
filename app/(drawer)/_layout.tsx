@@ -60,7 +60,6 @@ export default function DrawerLayout() {
             borderBottomWidth: 1,
             borderBottomColor: borderColor,
             height: 60 + insets.top,  // Increase header height accounting for safe area
-            paddingTop: insets.top,   // Add padding for safe area
           },
           headerTintColor: textColor,
           headerShadowVisible: false,
@@ -77,7 +76,8 @@ export default function DrawerLayout() {
                 styles.menuButton,
                 { 
                   opacity: pressed ? 0.7 : 1,
-                  backgroundColor: pressed ? `${tintColor}10` : 'transparent'
+                  backgroundColor: pressed ? `${tintColor}10` : 'transparent',
+                  marginTop: insets.top, // Move paddingTop here instead
                 }
               ]}
               onPress={toggleDrawer}
@@ -95,6 +95,7 @@ export default function DrawerLayout() {
           headerTitleStyle: {
             fontSize: 24,
             fontWeight: 'bold',
+            marginTop: insets.top, // Add margin for safe area to title
           },
         }}
         drawerContent={() => null} // Hide the default drawer content

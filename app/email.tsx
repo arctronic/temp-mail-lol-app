@@ -4,7 +4,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
     FadeInDown,
     FadeInUp,
@@ -28,6 +28,11 @@ import { EmailContent } from '../components/email/EmailContent';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Helper function to get favicon URL (same as EmailList)
+const getFaviconUrl = (domain: string) => {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+};
+
 export default function EmailDetailScreen() {
   const params = useLocalSearchParams();
   const { id, fromLookup, autoMarkRead } = params;
@@ -41,6 +46,7 @@ export default function EmailDetailScreen() {
   const mutedColor = useThemeColor({}, 'tabIconDefault');
   
   const [showDetails, setShowDetails] = useState(false);
+  const [faviconError, setFaviconError] = useState(false);
   
   // Task 3.3: Use toast system instead of local feedback
   const { showSuccess, showError, showInfo } = useGlobalToast();
@@ -90,6 +96,11 @@ export default function EmailDetailScreen() {
   // Use real email if available, otherwise use dummy
   const displayEmail = email || dummyEmail;
   
+  // Reset favicon error when email changes
+  useEffect(() => {
+    setFaviconError(false);
+  }, [displayEmail.sender]);
+  
   // Auto-mark as read if opened from notification
   useEffect(() => {
     if (shouldAutoMarkRead && isFromLookup && email && params.to) {
@@ -119,14 +130,40 @@ export default function EmailDetailScreen() {
     minute: '2-digit',
   });
 
-  // Get sender name without email address
-  const senderName = displayEmail.sender.replace(/<.*>/, '').trim();
+  // Helper functions (same as EmailList)
+  const getSenderName = (sender: string) => {
+    // Extract name from "Name <email>" format or just return email
+    const match = sender.match(/^(.*?)\s*<.*>$/);
+    if (match && match[1].trim()) {
+      return match[1].trim();
+    }
+    return sender.split('@')[0];
+  };
+
+  const getSenderEmail = (sender: string) => {
+    const match = sender.match(/<(.+)>/);
+    return match ? match[1] : sender;
+  };
+
+  const getSenderDomain = (sender: string) => {
+    const email = getSenderEmail(sender);
+    const domain = email.split('@')[1];
+    if (!domain) return '';
+    
+    // Extract main domain by taking the last two parts (domain.tld)
+    // This handles cases like mail.facebook.com -> facebook.com
+    const domainParts = domain.split('.');
+    if (domainParts.length >= 2) {
+      // Take the last two parts (e.g., facebook.com from mail.facebook.com)
+      return domainParts.slice(-2).join('.');
+    }
+    return domain;
+  };
+
+  // Get sender info
+  const senderName = getSenderName(displayEmail.sender);
+  const senderEmail = getSenderEmail(displayEmail.sender);
   const senderInitial = senderName.charAt(0).toUpperCase();
-  
-  // Extract email address from sender
-  const emailRegex = /<([^>]+)>/;
-  const match = displayEmail.sender.match(emailRegex);
-  const senderEmail = match ? match[1] : displayEmail.sender;
 
   // Task 3.3: Enhanced action handlers with toast feedback
   const handleCopyContent = async () => {
@@ -253,10 +290,19 @@ ${displayEmail.message}`;
           
           {/* Sender Information */}
           <View style={styles.senderSection}>
-            <View style={[styles.senderAvatar, { backgroundColor: accentColor }]}>
-              <ThemedText style={styles.senderInitial}>
-                {senderInitial}
-              </ThemedText>
+            <View style={[styles.senderAvatar, { backgroundColor: faviconError ? accentColor : 'transparent' }]}>
+              {!faviconError ? (
+                <Image
+                  source={{ uri: getFaviconUrl(getSenderDomain(displayEmail.sender)) }}
+                  style={styles.faviconImage}
+                  onError={() => setFaviconError(true)}
+                  onLoad={() => setFaviconError(false)}
+                />
+              ) : (
+                <ThemedText style={styles.senderInitial}>
+                  {senderInitial}
+                </ThemedText>
+              )}
             </View>
             
             <View style={styles.senderInfo}>
@@ -368,9 +414,14 @@ const styles = StyleSheet.create({
   senderAvatar: {
     width: 48,
     height: 48,
-    borderRadius: 0,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  faviconImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   senderInitial: {
     fontSize: 18,

@@ -1,19 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { getAdUnitIds } from '../constants/AdMobConfig';
 import { useGlobalToast } from '../hooks/useGlobalToast';
 
 // Conditional import to prevent errors in Expo Go
 let mobileAds: any = null;
-let AdsConsent: any = null;
-let AdsConsentStatus: any = null;
 let InterstitialAd: any = null;
 let RewardedAd: any = null;
 let AdEventType: any = null;
 let RewardedAdEventType: any = null;
 let TestIds: any = null;
+
+// Google UMP SDK for consent management
+let UMP: any = null;
 
 // Check if we're running in Expo Go
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -22,13 +23,14 @@ if (!isExpoGo) {
   try {
     const googleMobileAds = require('react-native-google-mobile-ads');
     mobileAds = googleMobileAds.default;
-    AdsConsent = googleMobileAds.AdsConsent;
-    AdsConsentStatus = googleMobileAds.AdsConsentStatus;
     InterstitialAd = googleMobileAds.InterstitialAd;
     RewardedAd = googleMobileAds.RewardedAd;
     AdEventType = googleMobileAds.AdEventType;
     RewardedAdEventType = googleMobileAds.RewardedAdEventType;
     TestIds = googleMobileAds.TestIds;
+    
+    // Import UMP SDK
+    UMP = require('react-native-google-ump');
   } catch (error) {
     console.log('⚠️ Google Mobile Ads not available in current environment');
   }
@@ -64,7 +66,7 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   const [generationCount, setGenerationCount] = useState(0);
   const [isAdFree, setIsAdFree] = useState(false);
   const [lastAdShown, setLastAdShown] = useState(0);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isAdsInitialized, setIsAdsInitialized] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
   
   const { showError, showInfo, showSuccess } = useGlobalToast();
@@ -76,61 +78,55 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize AdMob following Google's official guidelines
   // Source: https://developers.google.com/admob/android/quick-start#initialize_the_google_mobile_ads_sdk
-  const initializeAdMob = useCallback(async () => {
-    // Skip initialization in Expo Go or if already initialized
-    if (isExpoGo || !mobileAds || isInitialized) {
-      console.log('⚠️ AdMob not available in Expo Go or already initialized - skipping initialization');
-      if (!isInitialized && (isExpoGo || !mobileAds)) {
-        setIsInitialized(true); // Set as initialized to prevent blocking the app
-      }
+  const initializeAds = useCallback(async () => {
+    if (isExpoGo || !mobileAds || !UMP) {
+      console.log('📺 Ads not available in current environment');
+      setIsAdsInitialized(false);
       return;
     }
 
     try {
-      console.log('🚀 Initializing Google Mobile Ads SDK...');
+      console.log('🎯 Starting ads initialization...');
       
-      // Step 1: Request consent before initialization (GDPR compliance)
+      // First, handle consent
       await requestConsentInformation();
       
-      // Step 2: Initialize on background thread as recommended by Google
-      const initializationStatus = await mobileAds().initialize();
+      // Initialize the Google Mobile Ads SDK after consent
+      if (!isMobileAdsStartCalledRef.current) {
+        console.log('🎯 Initializing Google Mobile Ads SDK...');
+        const adapterStatuses = await mobileAds().initialize();
+        console.log('🎯 Mobile Ads SDK initialized:', adapterStatuses);
+        isMobileAdsStartCalledRef.current = true;
+      }
       
-      console.log('✅ Google Mobile Ads SDK initialized successfully');
-      console.log('📊 Initialization status:', initializationStatus);
+      // Create ad instances
+      createAdInstances();
       
-      // Step 3: Set request configuration
-      await mobileAds().setRequestConfiguration({
-        maxAdContentRating: 'T' as any,
-        tagForChildDirectedTreatment: undefined,
-        tagForUnderAgeOfConsent: undefined,
-        testDeviceIdentifiers: [],
-      });
-      
-      setIsInitialized(true);
+      setIsAdsInitialized(true);
+      console.log('✅ Ads initialization completed');
       
     } catch (error) {
-      console.error('❌ Failed to initialize Google Mobile Ads SDK:', error);
-      // Don't show error toast to users - just log it
-      setIsInitialized(false);
+      console.error('❌ Ads initialization failed:', error);
+      setIsAdsInitialized(false);
     }
-  }, []); // Remove isInitialized dependency to prevent re-runs
+  }, []);
 
   // Initialize AdMob on component mount
   useEffect(() => {
     let isMounted = true;
-    
-    const initializeAds = async () => {
-      if (!isInitialized && isMounted) {
-        await initializeAdMob();
+
+    const initializeAdsOnMount = async () => {
+      if (!isAdsInitialized && isMounted) {
+        await initializeAds();
       }
     };
-    
-    initializeAds();
-    
+
+    initializeAdsOnMount();
+
     return () => {
       isMounted = false;
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [initializeAds, isAdsInitialized]);
 
   // Load counters on mount
   useEffect(() => {
@@ -139,62 +135,58 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const requestConsentInformation = async () => {
+    if (!UMP) {
+      console.log('📋 UMP SDK not available, skipping consent');
+      setHasConsent(false);
+      return;
+    }
+
     try {
       console.log('📋 Requesting consent information...');
       
-      // Request consent information and show form if required
-      await AdsConsent.gatherConsent();
+      // Request consent information update
+      const consentInfo = await UMP.requestConsentInfoUpdate();
       
-      // Check consent status
-      const consentInfo = await AdsConsent.getConsentInfo();
-      const canRequestAds = consentInfo.canRequestAds;
-      
-      console.log('📋 Consent status:', {
-        canRequestAds,
-        status: consentInfo.status
+      console.log('📋 Consent info received:', {
+        isConsentFormAvailable: consentInfo.isConsentFormAvailable,
+        consentStatus: consentInfo.consentStatus
       });
       
-      setHasConsent(canRequestAds);
-      await AsyncStorage.setItem(STORAGE_KEYS.consentStatus, JSON.stringify(canRequestAds));
+      // Show consent form if required
+      if (consentInfo.isConsentFormAvailable) {
+        console.log('📋 Showing consent form...');
+        const consentResult = await UMP.showConsentFormIfRequired();
+        
+        console.log('📋 Consent form result:', {
+          status: consentResult.status,
+          canRequestAds: consentResult.canRequestAds
+        });
+        
+        setHasConsent(consentResult.canRequestAds || false);
+        await AsyncStorage.setItem(STORAGE_KEYS.consentStatus, JSON.stringify(consentResult.canRequestAds || false));
+      } else {
+        // No consent form needed, check if we can request ads
+        const canRequestAds = consentInfo.consentStatus === 'OBTAINED' || consentInfo.consentStatus === 'NOT_REQUIRED';
+        setHasConsent(canRequestAds);
+        await AsyncStorage.setItem(STORAGE_KEYS.consentStatus, JSON.stringify(canRequestAds));
+        
+        console.log('📋 No consent form required, can request ads:', canRequestAds);
+      }
       
     } catch (error) {
       console.log('📋 Consent gathering failed, proceeding with limited ads:', error);
       // Fallback to limited ads
       setHasConsent(false);
+      await AsyncStorage.setItem(STORAGE_KEYS.consentStatus, JSON.stringify(false));
     }
-  };
-
-  const startGoogleMobileAdsSDK = async () => {
-    const consentInfo = await AdsConsent.getConsentInfo();
-    
-    if (!consentInfo.canRequestAds || isMobileAdsStartCalledRef.current) {
-      return;
-    }
-
-    isMobileAdsStartCalledRef.current = true;
-
-    // Handle App Tracking Transparency for iOS
-    if (Platform.OS === 'ios') {
-      try {
-        const gdprApplies = await AdsConsent.getGdprApplies();
-        const hasConsentForPurposeOne = gdprApplies && (await AdsConsent.getPurposeConsents()).startsWith("1");
-        
-        if (!gdprApplies || hasConsentForPurposeOne) {
-          // Request ATT if needed
-          console.log('📱 ATT consent obtained or not required');
-        }
-      } catch (error) {
-        console.log('📱 ATT handling failed:', error);
-      }
-    }
-
-    // Initialize the Google Mobile Ads SDK
-    console.log('🎯 Initializing Google Mobile Ads SDK...');
-    const adapterStatuses = await mobileAds().initialize();
-    console.log('🎯 Mobile Ads SDK initialized:', adapterStatuses);
   };
 
   const createAdInstances = () => {
+    if (!InterstitialAd || !RewardedAd || !AdEventType || !RewardedAdEventType) {
+      console.log('📺 Ad classes not available, skipping ad instance creation');
+      return;
+    }
+
     try {
       const adUnitIds = getAdUnitIds();
       
@@ -204,11 +196,46 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
         requestNonPersonalizedAdsOnly: !hasConsent,
       });
       
+      // Add event listeners for interstitial
+      interstitialRef.current.addAdEventListener(AdEventType.LOADED, () => {
+        console.log('📺 Interstitial ad loaded successfully');
+      });
+      
+      interstitialRef.current.addAdEventListener(AdEventType.ERROR, (error: any) => {
+        console.error('📺 Interstitial ad error:', error);
+      });
+      
+      interstitialRef.current.addAdEventListener(AdEventType.CLOSED, () => {
+        console.log('📺 Interstitial ad closed');
+        // Load next ad after a delay
+        setTimeout(loadInterstitialAd, 1000);
+      });
+      
       // Create Rewarded Ad
       const rewardedAdUnitId = __DEV__ ? TestIds.REWARDED : adUnitIds.rewarded;
       rewardedRef.current = RewardedAd.createForAdRequest(rewardedAdUnitId, {
         requestNonPersonalizedAdsOnly: !hasConsent,
       });
+      
+      // Add event listeners for rewarded ad with proper error handling
+      try {
+        rewardedRef.current.addAdEventListener(RewardedAdEventType.LOADED, () => {
+          console.log('🎁 Rewarded ad loaded successfully');
+        });
+        
+        rewardedRef.current.addAdEventListener(RewardedAdEventType.ERROR, (error: any) => {
+          console.error('🎁 Rewarded ad error:', error);
+        });
+        
+        rewardedRef.current.addAdEventListener(RewardedAdEventType.CLOSED, () => {
+          console.log('🎁 Rewarded ad closed');
+          // Load next ad after a delay
+          setTimeout(loadRewardedAd, 1000);
+        });
+      } catch (eventError) {
+        console.error('🎁 Failed to add rewarded ad event listeners:', eventError);
+        // Continue without event listeners if they fail
+      }
       
       // Load initial ads
       loadInterstitialAd();
@@ -221,14 +248,24 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadInterstitialAd = () => {
-    if (interstitialRef.current) {
-      interstitialRef.current.load();
+    if (interstitialRef.current && !interstitialRef.current.loaded) {
+      try {
+        interstitialRef.current.load();
+        console.log('📺 Loading interstitial ad...');
+      } catch (error) {
+        console.error('📺 Failed to load interstitial ad:', error);
+      }
     }
   };
 
   const loadRewardedAd = () => {
-    if (rewardedRef.current) {
-      rewardedRef.current.load();
+    if (rewardedRef.current && !rewardedRef.current.loaded) {
+      try {
+        rewardedRef.current.load();
+        console.log('🎁 Loading rewarded ad...');
+      } catch (error) {
+        console.error('🎁 Failed to load rewarded ad:', error);
+      }
     }
   };
 
@@ -265,7 +302,7 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   };
 
   const canShowAd = (type: 'refresh' | 'lookup' | 'generation'): boolean => {
-    if (isAdFree || !isInitialized) return false;
+    if (isAdFree || !isAdsInitialized) return false;
     
     // Minimum 60 seconds between ads
     if (Date.now() - lastAdShown < 60000) return false;
@@ -316,6 +353,12 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      // Check if interstitial ad instance exists
+      if (!interstitialRef.current) {
+        console.log('📺 Interstitial ad not initialized');
+        return;
+      }
+
       const isLoaded = interstitialRef.current.loaded;
       if (isLoaded) {
         await interstitialRef.current.show();
@@ -332,32 +375,46 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
 
   const showRewardedAd = useCallback(async (onReward: () => void): Promise<void> => {
     // Skip in Expo Go
-    if (isExpoGo || !mobileAds || !RewardedAd) {
+    if (isExpoGo || !mobileAds || !RewardedAd || !RewardedAdEventType) {
       console.log('⚠️ Rewarded ads not available in Expo Go');
       onReward(); // Still execute the reward action for testing
       return;
     }
 
     try {
+      if (!rewardedRef.current) {
+        console.log('🎁 Rewarded ad not initialized');
+        onReward(); // Execute action anyway
+        return;
+      }
+
       const isLoaded = rewardedRef.current.loaded;
       if (isLoaded) {
-        // Set up reward listener
-        const unsubscribe = rewardedRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-          console.log('🎁 User earned reward');
+        // Set up reward listener with error handling
+        let unsubscribe: (() => void) | null = null;
+        try {
+          unsubscribe = rewardedRef.current.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+            console.log('🎁 User earned reward');
+            onReward();
+            if (unsubscribe) unsubscribe();
+          });
+        } catch (eventError) {
+          console.log('🎁 Failed to add reward event listener, executing action anyway:', eventError);
           onReward();
-          unsubscribe();
-        });
+          return;
+        }
 
         await rewardedRef.current.show();
         
         // Load next ad
         setTimeout(loadRewardedAd, 1000);
       } else {
-        showInfo('Ad not ready, please try again in a moment');
+        console.log('🎁 Rewarded ad not loaded, executing action anyway');
+        onReward();
       }
     } catch (error) {
       console.log('Failed to show rewarded ad:', error);
-      showError('Unable to load ad. Please try again.');
+      onReward(); // Execute action anyway
     }
   }, []);
 
@@ -397,6 +454,13 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
     const messages = actionMessages[action];
 
     try {
+      // Check if rewarded ad instance exists
+      if (!rewardedRef.current) {
+        console.log('🎁 Rewarded ad not initialized, executing action anyway');
+        onReward();
+        return;
+      }
+
       const isLoaded = rewardedRef.current.loaded;
       console.log('🎁 Rewarded ad loaded:', isLoaded);
       
@@ -411,12 +475,19 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
               text: 'Watch Ad', 
               onPress: async () => {
                 try {
-                  // Set up reward listener
-                  const unsubscribe = rewardedRef.current!.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-                    console.log('🎁 Rewarded ad completed successfully');
+                  // Set up reward listener with error handling
+                  let unsubscribe: (() => void) | null = null;
+                  try {
+                    unsubscribe = rewardedRef.current!.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+                      console.log('🎁 Rewarded ad completed successfully');
+                      onReward();
+                      if (unsubscribe) unsubscribe();
+                    });
+                  } catch (eventError) {
+                    console.log('🎁 Failed to add reward event listener, executing action anyway:', eventError);
                     onReward();
-                    unsubscribe();
-                  });
+                    return;
+                  }
 
                   await rewardedRef.current!.show();
                   
@@ -474,7 +545,7 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
     incrementAction,
     isAdFree,
     enableAdFreeMode,
-    isInitialized,
+    isInitialized: isAdsInitialized,
     hasConsent,
   };
 

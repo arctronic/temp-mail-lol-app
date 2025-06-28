@@ -20,12 +20,15 @@
         "image": "latest"
       },
       "env": {
-        "EXPO_ANDROID_NDK_VERSION": "27.1.12297006"
+        "EXPO_ANDROID_NDK_VERSION": "25.2.9519653"
       }
     },
     "production-apk": {
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_ANDROID_NDK_VERSION": "25.2.9519653"
       }
     },
     "local-aab": {

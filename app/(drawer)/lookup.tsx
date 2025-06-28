@@ -1,3 +1,4 @@
+import { Octicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -179,30 +180,10 @@ export default function LookupScreen() {
                     </ThemedText>
                   )}
                 </ThemedText>
-                <ThemedText style={[styles.addedDate, { color: textColor, opacity: 0.6 }]}>
+                <ThemedText style={[styles.addedDate, { color: textColor, opacity: 0.8 }]}>
                   Added {formatDate({ $date: new Date(email.addedAt).toISOString() })}
                 </ThemedText>
               </ThemedView>
-            </ThemedView>
-            
-            <ThemedView style={styles.emailActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.removeButton,
-                  { 
-                    backgroundColor: pressed ? '#ff444420' : '#ff444410',
-                    borderColor: '#ff4444'
-                  }
-                ]}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleRemoveInbox(email.address);
-                }}
-              >
-                <IconSymbol name="xmark" size={16} color="#ff4444" />
-              </Pressable>
-              
-              <IconSymbol name="chevron.right" size={16} color={textColor} style={{ opacity: 0.4 }} />
             </ThemedView>
           </ThemedView>
           
@@ -212,7 +193,7 @@ export default function LookupScreen() {
               <ThemedText style={[styles.latestSender, { color: textColor }]} numberOfLines={1}>
                 Latest: {email.messages[0].sender}
               </ThemedText>
-              <ThemedText style={[styles.latestSubject, { color: textColor, opacity: 0.7 }]} numberOfLines={1}>
+              <ThemedText style={[styles.latestSubject, { color: textColor, opacity: 0.9 }]} numberOfLines={1}>
                 {email.messages[0].subject || '(No subject)'}
               </ThemedText>
             </ThemedView>
@@ -220,74 +201,45 @@ export default function LookupScreen() {
         </ThemedView>
       </Pressable>
     );
-  }, [handleEmailCardPress, handleRemoveInbox, formatDate, tintColor, borderColor, textColor, cardColor]);
+  }, [handleEmailCardPress, formatDate, tintColor, textColor, cardColor]);
   
   return (
     <ThemedView style={[styles.container, { backgroundColor }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedView style={styles.titleWithBadge}>
-            <ThemedText style={[styles.title, { color: textColor }]}>
-              My Lookup List
-            </ThemedText>
-            {getTotalUnreadCount() > 0 && (
-              <ThemedView style={[styles.totalUnreadBadge, { backgroundColor: tintColor }]}>
-                <ThemedText style={styles.totalUnreadText}>
-                  {getTotalUnreadCount()}
-                </ThemedText>
-              </ThemedView>
-            )}
-          </ThemedView>
-          <ThemedText style={[styles.subtitle, { color: textColor, opacity: 0.6 }]}>
+          <ThemedText style={[styles.subtitle, { color: textColor }]}>
             Tracking {lookupEmails.length}/{MAX_TRACKED_EMAILS} inboxes • Tap to view emails
           </ThemedText>
         </ThemedView>
-        
         <ThemedView style={styles.headerActions}>
           {isLoading && (
             <ThemedView style={styles.loadingIndicator}>
               <ActivityIndicator size="small" color={tintColor} />
-              <ThemedText style={[styles.loadingText, { color: textColor, opacity: 0.7 }]}>Syncing...</ThemedText>
+              <ThemedText style={[styles.loadingText, { color: textColor }]}>Syncing...</ThemedText>
             </ThemedView>
           )}
-          
-          {/* Export Button */}
           <Pressable
             style={({ pressed }) => [
-              styles.exportButton,
-              { 
-                opacity: pressed ? 0.7 : 1,
-                backgroundColor: isExporting ? `${tintColor}20` : tintColor,
-                borderColor: tintColor,
-              }
+              styles.syncIconButton,
+              { opacity: pressed ? 0.7 : 1 },
             ]}
             onPress={handleExport}
             disabled={isExporting || lookupEmails.length === 0}
           >
-            <ThemedView style={[styles.exportButtonContent, { backgroundColor: 'transparent' }]}>
-              {isExporting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <IconSymbol name="square.and.arrow.down" size={18} color="#ffffff" />
-              )}
-              <ThemedText style={styles.exportButtonText}>
-                {isExporting ? 'Exporting...' : 'Export'}
-              </ThemedText>
-            </ThemedView>
+            {isExporting ? (
+              <ActivityIndicator size="small" color={tintColor} />
+            ) : (
+              <Octicons name="download" size={20} color={tintColor} />
+            )}
           </Pressable>
-          
           <Pressable
             style={({ pressed }) => [
-              styles.syncButton,
-              { 
-                opacity: pressed ? 0.7 : 1, 
-                backgroundColor: `${tintColor}15`,
-                borderColor: tintColor,
-              }
+              styles.syncIconButton,
+              { opacity: pressed ? 0.7 : 1 },
             ]}
             onPress={refreshLookupEmails}
           >
-            <IconSymbol name="arrow.clockwise" size={16} color={tintColor} />
+            <IconSymbol name="arrow.clockwise" size={20} color={tintColor} />
           </Pressable>
         </ThemedView>
       </ThemedView>
@@ -300,7 +252,7 @@ export default function LookupScreen() {
             <ThemedText style={[styles.emptyTitle, { color: textColor }]}>
               No inboxes added yet
             </ThemedText>
-            <ThemedText style={[styles.emptySubtitle, { color: textColor, opacity: 0.6 }]}>
+            <ThemedText style={[styles.emptySubtitle, { color: textColor }]}>
               Add an inbox to start monitoring emails
             </ThemedText>
             <Pressable
@@ -378,61 +330,41 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  titleWithBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
   },
   subtitle: {
     fontSize: 14,
-    opacity: 0.7,
-  },
-  totalUnreadBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 24,
-    alignItems: 'center',
-  },
-  totalUnreadText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    opacity: 0.8,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   loadingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginRight: 8,
   },
   loadingText: {
     fontSize: 12,
     opacity: 0.7,
-  },
-  syncButton: {
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
   },
   content: {
     flex: 1,
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 80,
+    paddingBottom: 100,
   },
   emailCard: {
     borderRadius: 12,
     marginBottom: 12,
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -440,83 +372,87 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   emailContent: {
-    flex: 1,
+    padding: 16,
   },
   emailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    marginBottom: 8,
   },
   emailMainInfo: {
     flex: 1,
-    gap: 4,
+    minWidth: 0,
   },
   emailAddress: {
     fontSize: 16,
     fontWeight: '600',
+    marginBottom: 4,
   },
   emailMeta: {
     gap: 2,
   },
   emailCount: {
     fontSize: 14,
-    opacity: 0.8,
+    fontWeight: '500',
+  },
+  unreadIndicator: {
+    fontWeight: '600',
   },
   addedDate: {
     fontSize: 12,
-    opacity: 0.6,
   },
-  unreadIndicator: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  emailActions: {
+  emailActionsModern: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  removeButton: {
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
+  removeButtonModern: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chevronButton: {
+    padding: 4,
   },
   messagePreview: {
-    padding: 16,
-    paddingTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+    gap: 4,
   },
   latestSender: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    marginBottom: 4,
   },
   latestSubject: {
-    fontSize: 14,
-    opacity: 0.8,
+    fontSize: 13,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 32,
     gap: 16,
   },
   emptyTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 20,
+    opacity: 0.7,
   },
   addFirstButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 24,
+    gap: 8,
     marginTop: 8,
   },
   addFirstButtonText: {
@@ -526,32 +462,25 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: 24,
     right: 24,
+    bottom: 32,
     width: 56,
     height: 56,
     borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  syncIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  exportButton: {
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  exportButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  exportButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
 });
