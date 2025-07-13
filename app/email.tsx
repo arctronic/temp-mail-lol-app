@@ -360,7 +360,8 @@ ${displayEmail.message}`;
           </View>
 
           <EmailContent 
-            htmlContent={displayEmail.message} 
+            htmlContent={displayEmail.message}
+            allowExternalImages={false}
           />
 
           {displayEmail.attachments && displayEmail.attachments.length > 0 && (

@@ -50,6 +50,7 @@ export default function LookupScreen() {
   }, []);
 
   const handleRemoveInbox = useCallback((address: string) => {
+    // For better UX, let's allow direct removal without ads
     // Show rewarded ad for untracking
     showRewardedAdForAction(
       'untrack',
@@ -61,9 +62,14 @@ export default function LookupScreen() {
           showError('Failed to remove inbox');
         }
       },
-      () => {
-        // User cancelled or ad failed
-        console.log('User cancelled untrack or ad failed');
+      async () => {
+        // User cancelled or ad failed - still allow removal for better UX
+        try {
+          await removeEmailFromLookup(address);
+          showSuccess(`Stopped tracking ${address}`);
+        } catch (error) {
+          showError('Failed to remove inbox');
+        }
       }
     );
   }, [removeEmailFromLookup, showSuccess, showError, showRewardedAdForAction]);
@@ -185,6 +191,28 @@ export default function LookupScreen() {
                 </ThemedText>
               </ThemedView>
             </ThemedView>
+            <ThemedView style={styles.emailActionsModern}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.removeButtonModern,
+                  {
+                    backgroundColor: pressed ? 'rgba(255, 59, 48, 0.2)' : 'rgba(255, 59, 48, 0.1)',
+                  },
+                ]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleRemoveInbox(email.address);
+                }}
+              >
+                <IconSymbol name="trash" size={16} color="#ff3b30" />
+              </Pressable>
+              <Pressable
+                style={styles.chevronButton}
+                onPress={() => handleEmailCardPress(email)}
+              >
+                <IconSymbol name="chevron.right" size={16} color={textColor} style={{ opacity: 0.5 }} />
+              </Pressable>
+            </ThemedView>
           </ThemedView>
           
           {/* Preview of latest message */}
@@ -204,7 +232,7 @@ export default function LookupScreen() {
   }, [handleEmailCardPress, formatDate, tintColor, textColor, cardColor]);
   
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
+    <ThemedView style={[styles.container, { backgroundColor, paddingTop: 20 }]}>
       <ThemedView style={styles.header}>
         <ThemedView style={styles.titleContainer}>
           <ThemedText style={[styles.subtitle, { color: textColor }]}>

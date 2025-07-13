@@ -51,11 +51,11 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.4",
+    "react-native-autoheight-webview": "^1.6.5",
     "react-native-elements": "^3.4.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-google-mobile-ads": "^15.4.0",
-    "react-native-google-ump": "^1.0.0",
     "react-native-paper": "^5.14.5",
     "react-native-parsed-text": "^0.0.22",
     "react-native-reanimated": "~3.17.4",
@@ -65,12 +65,14 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.20.0",
     "react-native-webview": "^13.13.5",
+    "sanitize-html": "^2.17.0",
     "tailwindcss": "^3.3.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
+    "@types/sanitize-html": "^2.16.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
     "typescript": "~5.8.3"

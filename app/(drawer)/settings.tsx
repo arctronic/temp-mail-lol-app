@@ -55,7 +55,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor }]}>
+    <ThemedView style={[styles.container, { backgroundColor, paddingTop: 20 }]}>
       <KeyboardAvoidingView style={styles.keyboardView} behavior="padding">
         <ScrollView 
           style={styles.scrollView}

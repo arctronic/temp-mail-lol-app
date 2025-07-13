@@ -700,7 +700,7 @@ export const EmailList = ({ onViewEmail }: EmailListProps) => {
         data={processedEmails}
         renderItem={renderEmailItem}
         estimatedItemSize={120}
-        keyExtractor={(item, index) => item.id?.toString() || `email-${index}-${item.sender}-${typeof item.date === 'string' ? item.date : item.date.$date}`}
+        keyExtractor={(item, index) => item.id?.toString() || `list-${index}-${item.sender || 'unknown'}-${item.subject || 'no-subject'}-${typeof item.date === 'string' ? item.date : item.date.$date}-${Math.random().toString(36).substr(2, 9)}`}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyList}
         ListFooterComponent={renderLoadingMoreIndicator}
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 2,
     marginBottom: 8,
     borderRadius: 12,
   },

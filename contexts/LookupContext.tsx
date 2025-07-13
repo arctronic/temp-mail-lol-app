@@ -282,7 +282,7 @@ export function LookupProvider({ children }: { children: React.ReactNode }) {
       // Process and normalize the email data
       const messages: Email[] = data.map((email, idx) => ({
         ...email,
-        id: email.id || email._id || `${email.subject || 'no-subject'}-${email.date || idx}`,
+        id: email.id || email._id || `lookup-${idx}-${email.sender || 'unknown'}-${email.subject || 'no-subject'}-${email.date || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         date: typeof email.date === 'string' ? { $date: email.date } : email.date,
         created_at: typeof email.created_at === 'string' ? { $date: email.created_at } : email.created_at,
         updated_at: typeof email.updated_at === 'string' ? { $date: email.updated_at } : email.updated_at,

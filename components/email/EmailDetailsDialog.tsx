@@ -247,7 +247,10 @@ ${email.message}
             {email.attachments && email.attachments.length > 0 && (
               <EmailAttachments attachments={email.attachments} />
             )}
-            <EmailContent htmlContent={email.message} />
+            <EmailContent 
+              htmlContent={email.message}
+              allowExternalImages={false}
+            />
           </View>
           
           <View style={styles.actionBar}>

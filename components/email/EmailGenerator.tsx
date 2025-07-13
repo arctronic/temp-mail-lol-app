@@ -115,21 +115,21 @@ export const EmailGenerator = () => {
           <IconSymbol name="arrow.clockwise" size={16} color={textColor} />
           <ThemedText style={styles.buttonText}>New</ThemedText>
         </Pressable>
+        
+        <Pressable
+          style={({ pressed }) => [
+            styles.saveButton,
+            { 
+              opacity: pressed ? 0.8 : 1,
+              backgroundColor: tintColor
+            }
+          ]}
+          onPress={handleSaveToLookup}
+        >
+          <IconSymbol name="list.bullet.clipboard.fill" size={16} color="#fff" />
+          <ThemedText style={styles.saveButtonText}>Save</ThemedText>
+        </Pressable>
       </View>
-      
-      <Pressable
-        style={({ pressed }) => [
-          styles.saveButton,
-          { 
-            opacity: pressed ? 0.8 : 1,
-            backgroundColor: tintColor
-          }
-        ]}
-        onPress={handleSaveToLookup}
-      >
-        <IconSymbol name="list.bullet.clipboard.fill" size={20} color="#fff" />
-        <ThemedText style={styles.saveButtonText}>Save to Lookup List</ThemedText>
-      </Pressable>
     </ThemedView>
   );
 };
@@ -173,33 +173,34 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   button: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     minHeight: 44,
     borderRadius: 22,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
   },
   buttonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   saveButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     minHeight: 44,
     borderRadius: 22,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   saveButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: 'white',
   },
