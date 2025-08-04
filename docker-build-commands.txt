@@ -1,0 +1,38 @@
+DOCKER BUILD COMMANDS FOR REACT NATIVE APK
+==========================================
+
+1. First, make sure Docker Desktop is running on Windows.
+
+2. Open Command Prompt or PowerShell as Administrator and navigate to your project:
+   cd "C:\Users\shiha\Desktop\tronics\temp-mail"
+
+3. Build the Docker image (this will take 15-20 minutes):
+   docker build -t temp-mail-builder .
+
+4. Create output directory:
+   mkdir build-output
+
+5. Extract APK from container:
+   docker run --rm -v "%cd%\build-output:/host-output" temp-mail-builder sh -c "cp /output/*.apk /host-output/"
+
+6. Check the build-output folder for your APK files:
+   dir build-output
+
+ALTERNATIVE: Run the batch file directly:
+========================================
+Just double-click "build-apk.bat" and it will do all steps automatically.
+
+TROUBLESHOOTING:
+===============
+- If Docker build fails, check Docker Desktop is running
+- If permission errors, run Command Prompt as Administrator
+- Build process takes 15-20 minutes for first time (downloads Android SDK)
+- APK will be around 50-100MB in size
+
+The Docker container includes:
+- Ubuntu 22.04
+- Node.js 18
+- Java 11 (OpenJDK)
+- Android SDK with API 33 & 34
+- Android NDK
+- All build tools needed for React Native

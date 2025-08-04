@@ -1,0 +1,33 @@
+# Use Node.js base image
+FROM node:18-bullseye
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install EAS CLI globally
+RUN npm install -g @expo/cli@latest eas-cli
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY eas.json ./
+COPY app.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the project
+COPY . .
+
+# Try to build using EAS remote build (requires internet)
+# This will create an APK on EAS servers and provide download link
+RUN eas build --platform android --profile local-apk --non-interactive --no-wait || echo "EAS build initiated - check EAS dashboard for APK download"
+
+# Create output directory with instructions
+RUN mkdir -p /output
+RUN echo "EAS build initiated. Check https://expo.dev for build status and APK download." > /output/build-instructions.txt

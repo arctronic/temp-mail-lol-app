@@ -1,181 +1,187 @@
-# AdMob Integration Setup Guide
+# AdMob Setup Guide for TempMailApp
 
-## 🎯 Overview
-This guide will help you integrate AdMob with your Temp Mail app to monetize the lookup features (untrack emails, add extra inboxes, export to Excel).
+## 🚨 Current Status: MISCONFIGURED
 
-## 📋 Prerequisites
-- AdMob account (you already have this!)
-- App published or ready for review on Google Play Store
-- Your app package name: `com.tronics.tempmail`
+Your AdMob implementation is currently misconfigured and **ads will not work** until you complete the setup below.
 
-## 🚀 Step-by-Step Setup
+## Issues Found
 
-### Step 1: Create Ad Units in AdMob Console
+### ❌ Critical Issues
+1. **Missing google-services.json** - Required for Android
+2. **Placeholder Ad Unit IDs** - All using dummy values
+3. **Placeholder AdMob App ID** - Using dummy value in AndroidManifest.xml
+4. **Missing iOS Info.plist** configuration
 
-1. **Go to your AdMob console**: https://apps.admob.com/
-2. **Click on your "Temp Mail" app** (or create it if you haven't)
-3. **Go to "Ad units" section**
-4. **Create these 3 ad units:**
+### ⚠️ Partially Fixed
+- ✅ Google Services classpath added to build.gradle
+- ✅ Google Services plugin applied to app/build.gradle
+- ✅ ProGuard rules added for AdMob
+- ✅ Google Mobile Ads SDK dependency present
 
-#### Banner Ad Unit
-- Click "Add ad unit"
-- Select "Banner"
-- Name: "Temp Mail Banner"
-- Copy the Ad Unit ID (looks like: `ca-app-pub-1234567890123456/1234567890`)
+## Step-by-Step Setup
 
-#### Interstitial Ad Unit
-- Click "Add ad unit"  
-- Select "Interstitial"
-- Name: "Temp Mail Interstitial"
-- Copy the Ad Unit ID
+### Step 1: Create AdMob Account & App
 
-#### Rewarded Ad Unit ⭐ (Most Important)
-- Click "Add ad unit"
-- Select "Rewarded"
-- Name: "Temp Mail Rewarded"
-- Copy the Ad Unit ID
+1. **Go to AdMob Console**: https://admob.google.com
+2. **Create new app** or add existing app
+3. **Get your AdMob App ID** (format: `ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX`)
 
-### Step 2: Get Your App ID
+### Step 2: Create Ad Units
 
-1. In AdMob console, go to "App settings"
-2. Copy your **App ID** (looks like: `ca-app-pub-1234567890123456~1234567890`)
+Create these ad units in your AdMob console:
 
-### Step 3: Update Your App Configuration
+1. **Banner Ad Unit**
+   - Ad format: Banner
+   - Platform: Android & iOS
+   - Get the Ad Unit ID (format: `ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX`)
 
-#### 3.1 Update `app.json`
-Replace the placeholders in `app.json`:
-```json
-[
-  "expo-ads-admob",
-  {
-    "androidAppId": "ca-app-pub-YOUR-ACTUAL-APP-ID~1234567890",
-    "iosAppId": "ca-app-pub-YOUR-ACTUAL-APP-ID~1234567890"
-  }
-]
+2. **Interstitial Ad Unit**
+   - Ad format: Interstitial
+   - Platform: Android & iOS
+   - Get the Ad Unit ID
+
+3. **Rewarded Ad Unit** (Optional)
+   - Ad format: Rewarded
+   - Platform: Android & iOS
+   - Get the Ad Unit ID
+
+### Step 3: Configure Android
+
+#### 3.1 Update AndroidManifest.xml
+Replace the placeholder in `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<!-- Replace this line -->
+<meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX"/>
+
+<!-- With your actual AdMob App ID -->
+<meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-YOUR_ACTUAL_APP_ID~YOUR_ACTUAL_APP_ID"/>
 ```
 
-#### 3.2 Update `constants/AdMobConfig.ts`
-Replace these placeholders with your actual IDs:
+#### 3.2 Add google-services.json
+1. **Download google-services.json** from Firebase Console
+2. **Place it in** `android/app/google-services.json`
+
+> **Note**: You need a Firebase project connected to your AdMob account
+
+### Step 4: Configure iOS
+
+#### 4.1 Update Info.plist
+Add to `ios/TempMailApp/Info.plist`:
+
+```xml
+<key>GADApplicationIdentifier</key>
+<string>ca-app-pub-YOUR_IOS_APP_ID~YOUR_IOS_APP_ID</string>
+```
+
+#### 4.2 Add GoogleService-Info.plist
+1. **Download GoogleService-Info.plist** from Firebase Console
+2. **Add it to Xcode project** in `ios/TempMailApp/`
+
+### Step 5: Update Ad Unit IDs
+
+Edit `src/services/AdMobService.ts` and replace all placeholder IDs:
 
 ```typescript
-export const ADMOB_CONFIG = {
-  // App IDs (from AdMob console)
-  androidAppId: 'ca-app-pub-YOUR-ACTUAL-APP-ID~1234567890',
-  iosAppId: 'ca-app-pub-YOUR-ACTUAL-APP-ID~1234567890',
-  
-  // Ad Unit IDs (from AdMob console)
-  adUnitIds: {
-    // Production IDs (replace with your actual IDs)
-    production: {
-      banner: 'ca-app-pub-YOUR-ACTUAL-APP-ID/1234567890',
-      interstitial: 'ca-app-pub-YOUR-ACTUAL-APP-ID/1234567890', 
-      rewarded: 'ca-app-pub-YOUR-ACTUAL-APP-ID/1234567890',
-    }
-  }
-};
+private getProductionBannerId(): string {
+  return Platform.select({
+    ios: 'ca-app-pub-YOUR_PUBLISHER_ID/YOUR_IOS_BANNER_ID',
+    android: 'ca-app-pub-YOUR_PUBLISHER_ID/YOUR_ANDROID_BANNER_ID',
+  }) || TestIds.BANNER;
+}
+
+private getProductionInterstitialId(): string {
+  return Platform.select({
+    ios: 'ca-app-pub-YOUR_PUBLISHER_ID/YOUR_IOS_INTERSTITIAL_ID',
+    android: 'ca-app-pub-YOUR_PUBLISHER_ID/YOUR_ANDROID_INTERSTITIAL_ID',
+  }) || TestIds.INTERSTITIAL;
+}
+
+private getProductionRewardedId(): string {
+  return Platform.select({
+    ios: 'ca-app-pub-YOUR_PUBLISHER_ID/YOUR_IOS_REWARDED_ID',
+    android: 'ca-app-pub-YOUR_PUBLISHER_ID/YOUR_ANDROID_REWARDED_ID',
+  }) || TestIds.REWARDED;
+}
 ```
 
-### Step 4: Build and Test
+### Step 6: Test Your Setup
 
-#### 4.1 Development Testing
-- The app is already configured to use test ads in development mode
-- Test ads will show automatically when you run `npm start`
+#### Development Testing
+- **Test ads are shown by default** in development mode (`__DEV__ = true`)
+- **Real ads will show** in production builds
 
-#### 4.2 Production Build
+#### Production Testing
+1. **Build release APK**: `cd android && ./gradlew assembleRelease`
+2. **Install on device**: `adb install app/build/outputs/apk/release/app-release.apk`
+3. **Test ad loading** and display
+
+### Step 7: Ad Placement Strategy
+
+Your app already has strategic ad placement configured:
+
+- **Banner Ads**: Bottom of all screens
+- **Interstitial Ads**: 
+  - 30% chance after email generation
+  - 20% chance after email opening
+  - 10% chance on app open
+  - 5% chance on settings access
+- **1-minute cooldown** between interstitials
+
+## Verification Checklist
+
+- [ ] AdMob account created
+- [ ] App added to AdMob
+- [ ] Ad units created (Banner, Interstitial, Rewarded)
+- [ ] AndroidManifest.xml updated with real App ID
+- [ ] google-services.json added to android/app/
+- [ ] Info.plist updated with iOS App ID
+- [ ] GoogleService-Info.plist added to iOS project
+- [ ] AdMobService.ts updated with real ad unit IDs
+- [ ] Test build created and ads verified
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"No ad to show"**
+   - Check ad unit IDs are correct
+   - Ensure google-services.json is in place
+   - Verify App ID in manifest
+
+2. **Ads not loading in production**
+   - Check ProGuard rules are applied
+   - Verify all IDs are correctly configured
+   - Check network permissions
+
+3. **iOS builds failing**
+   - Ensure GoogleService-Info.plist is added to Xcode project
+   - Check iOS deployment target compatibility
+
+### Debug Commands
+
 ```bash
-# Build for Android
-npx expo build:android
+# Clean and rebuild
+cd android && ./gradlew clean
+cd .. && npx react-native run-android
 
-# Or build with EAS
-eas build --platform android
+# Check AdMob logs
+adb logcat | grep -i "admob\|ads"
 ```
 
-## 🎮 How the AdMob Features Work
+## Revenue Optimization
 
-### 1. **Untrack Emails** 🗑️
-- Users can track up to 5 emails for free
-- To remove an email from tracking, they must watch a rewarded ad
-- Located in: `app/(drawer)/lookup.tsx`
+Once ads are working:
 
-### 2. **Add Extra Inboxes** 📧
-- Free limit: 5 email addresses
-- Premium limit: 20 email addresses (unlocked with ads)
-- Each extra inbox requires watching a rewarded ad
+1. **Monitor fill rates** in AdMob console
+2. **A/B test ad frequencies** in AdMobService.ts
+3. **Adjust cooldown periods** based on user behavior
+4. **Consider implementing rewarded ads** for premium features
 
-### 3. **Export to Excel** 📊
-- Users can export all tracked emails to an Excel file
-- Requires watching a rewarded ad before download
-- File includes: sender, subject, date, message preview, attachment count
+---
 
-## 🔧 Technical Implementation
-
-### Ad Types Used:
-- **Rewarded Ads**: For premium features (untrack, extra inboxes, export)
-- **Interstitial Ads**: For general app usage (every 5 refreshes, 3 lookups, 10 generations)
-- **Banner Ads**: Ready for implementation if needed
-
-### Key Files:
-- `contexts/AdContext.tsx` - Main AdMob logic
-- `constants/AdMobConfig.ts` - Ad unit configuration
-- `app/(drawer)/lookup.tsx` - Lookup page with ad-gated features
-- `utils/excelExport.ts` - Excel export functionality
-
-## 🐛 Troubleshooting
-
-### Common Issues:
-
-1. **"Ad failed to load"**
-   - Check your Ad Unit IDs are correct
-   - Ensure your app is approved in AdMob
-   - Wait 24-48 hours after creating ad units
-
-2. **Test ads not showing**
-   - Make sure you're in development mode (`__DEV__ = true`)
-   - Check console logs for AdMob errors
-
-3. **Production ads not showing**
-   - Verify your App ID and Ad Unit IDs
-   - Check AdMob account status
-   - Ensure app is published on Play Store
-
-### Debug Commands:
-```bash
-# Check if AdMob is properly installed
-npm list expo-ads-admob
-
-# Clear cache and restart
-npm start --clear
-
-# Build clean version
-npx expo build:android --clear-cache
-```
-
-## 📈 Monetization Strategy
-
-### Revenue Optimization:
-1. **High-Value Actions**: Export and extra inboxes generate most revenue
-2. **User Experience**: Ads are optional and provide clear value
-3. **Frequency Capping**: Prevents ad fatigue with 60-second cooldowns
-4. **Ad-Free Mode**: Option for premium users (can be extended)
-
-### Expected Revenue:
-- **Rewarded ads**: $0.10 - $0.50 per view
-- **Interstitial ads**: $0.05 - $0.20 per view
-- **Daily active users**: Depends on your user base
-
-## ✅ Checklist
-
-- [ ] Created AdMob app
-- [ ] Created 3 ad units (Banner, Interstitial, Rewarded)
-- [ ] Updated `app.json` with App ID
-- [ ] Updated `constants/AdMobConfig.ts` with Ad Unit IDs
-- [ ] Tested with development ads
-- [ ] Built production version
-- [ ] Submitted app for AdMob review
-- [ ] Published app on Play Store
-
-## 🎉 You're Ready!
-
-Once you complete these steps, your app will start showing ads and generating revenue from the lookup features. The AdMob integration is designed to be user-friendly while maximizing monetization potential.
-
-**Need help?** Check the AdMob console for detailed analytics and troubleshooting guides. 
+**⚠️ Important**: Ads will NOT work until you complete ALL steps above. The current configuration uses test/placeholder values only.
