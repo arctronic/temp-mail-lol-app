@@ -1,4 +1,4 @@
-package com.tempmailapp
+package com.tronics.tempmail
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

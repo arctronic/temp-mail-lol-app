@@ -92,6 +92,10 @@ android {
         // Multidex support
         multiDexEnabled true
         
+        // Fix BuildConfig fields
+        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", "false"
+        buildConfigField "boolean", "IS_HERMES_ENABLED", "true"
+        
         // Vector drawable support
         vectorDrawables.useSupportLibrary = true
     }

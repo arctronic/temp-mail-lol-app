@@ -10,7 +10,12 @@
       "Bash(npx eas build:*)",
       "Bash(docker build:*)",
       "Bash(mkdir:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(mv:*)",
+      "Bash(rmdir:*)",
+      "Bash(rm:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
